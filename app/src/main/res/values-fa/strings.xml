@@ -1,15 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
-
-<!--
-  ~ Copyright (c) 2018 Hai Zhang <dreaming.in.code.zh@gmail.com>
-  ~ All Rights Reserved.
-  -->
-
 <resources
     xmlns:tools="http://schemas.android.com/tools"
     tools:ignore="ImpliedQuantity">
 
-    <string name="app_name">پرونده‌های متریال</string>
+    <string name="app_name">Vaterial Files</string>
 
     <string name="close">بستن</string>
     <string name="copy">رونوشت</string>
@@ -560,11 +554,5 @@
 
     <string name="about_title">درباره</string>
     <string name="about_version_title">نگارش</string>
-    <string name="about_github_title">دیدن در گیت‌هاب</string>
     <string name="about_licenses_title">پروانه‌ها</string>
-    <string name="about_privacy_policy_title">سیاست حفظ حریم خصوصی</string>
-    <string name="about_author_title">نویسنده</string>
-    <string name="about_author_name_title">Hai Zhang</string>
-    <string name="about_author_github_title">پی‌گیری در گیت‌هاب</string>
-    <string name="about_author_twitter_title">پی‌گیری در توییتر</string>
 </resources>

@@ -1,10 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
-
-<!--
-  ~ Copyright (c) 2019 Hai Zhang <dreaming.in.code.zh@gmail.com>
-  ~ All Rights Reserved.
-  -->
-
 <LinearLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
@@ -42,7 +36,7 @@
                 android:layout_height="@dimen/large_icon_size"
                 android:scaleType="centerCrop" />
 
-            <me.zhanghai.android.files.ui.DisabledAlphaImageView
+            <dev.vcgms.aapp.vaterialfiles.ui.DisabledAlphaImageView
                 android:id="@+id/targetAppIconBadgeImage"
                 android:layout_width="@dimen/badge_size_plus_1dp"
                 android:layout_height="@dimen/badge_size_plus_1dp"
@@ -118,7 +112,7 @@
                 android:layout_height="@dimen/large_icon_size"
                 android:scaleType="centerCrop" />
 
-            <me.zhanghai.android.files.ui.DisabledAlphaImageView
+            <dev.vcgms.aapp.vaterialfiles.ui.DisabledAlphaImageView
                 android:id="@+id/sourceAppIconBadgeImage"
                 android:layout_width="@dimen/badge_size_plus_1dp"
                 android:layout_height="@dimen/badge_size_plus_1dp"

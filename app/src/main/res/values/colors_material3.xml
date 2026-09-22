@@ -1,10 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
-
-<!--
-  ~ Copyright (c) 2018 Hai Zhang <dreaming.in.code.zh@gmail.com>
-  ~ All Rights Reserved.
-  -->
-
 <resources>
     <!-- This is actually unused on v29+, so it's okay to hard code. -->
     <color name="system_window_scrim_light_material3">#99FFFFFF</color>

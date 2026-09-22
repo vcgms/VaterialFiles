@@ -1,13 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
-
-<!--
-  ~ Copyright (c) 2019 Hai Zhang <dreaming.in.code.zh@gmail.com>
-  ~ All Rights Reserved.
-  -->
-
 <resources>
 
-    <string name="app_name">質感檔案</string>
+    <string name="app_name">Vaterial Files</string>
 
     <string name="close">關閉</string>
     <string name="copy">複製</string>
@@ -636,11 +630,5 @@
 
     <string name="about_title">關於</string>
     <string name="about_version_title">版本</string>
-    <string name="about_github_title">在 GitHub 上查看</string>
     <string name="about_licenses_title">許可證</string>
-    <string name="about_privacy_policy_title">隱私權政策</string>
-    <string name="about_author_title">作者</string>
-    <string name="about_author_name_title">張海</string>
-    <string name="about_author_github_title">在 GitHub 上關注</string>
-    <string name="about_author_twitter_title">在 Twitter 上關注</string>
 </resources>

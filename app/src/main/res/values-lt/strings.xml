@@ -1,15 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
-
-<!--
-  ~ Copyright (c) 2018 Hai Zhang <dreaming.in.code.zh@gmail.com>
-  ~ All Rights Reserved.
-  -->
-
 <resources
     xmlns:tools="http://schemas.android.com/tools"
     tools:ignore="ImpliedQuantity">
 
-    <string name="app_name">Material Failai</string>
+    <string name="app_name">Vaterial Files</string>
 
     <string name="close">Uždaryti</string>
     <string name="copy">Kopijuoti</string>
@@ -627,11 +621,5 @@
 
     <string name="about_title">Apie</string>
     <string name="about_version_title">Versija</string>
-    <string name="about_github_title">Peržiūrėti GitHub svetainėje</string>
     <string name="about_licenses_title">Licencijos</string>
-    <string name="about_privacy_policy_title">Privatumo Politika</string>
-    <string name="about_author_title">Autorius</string>
-    <string name="about_author_name_title">Hai Zhang</string>
-    <string name="about_author_github_title">Sekti GitHub svetainėje</string>
-    <string name="about_author_twitter_title">Sekti Twitter svetainėje</string>
 </resources>

@@ -1,10 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
-
-<!--
-  ~ Copyright (c) 2019 Hai Zhang <dreaming.in.code.zh@gmail.com>
-  ~ All Rights Reserved.
-  -->
-
 <FrameLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
@@ -25,7 +19,7 @@
 
             <include layout="@layout/name_dialog_name_include" />
 
-            <me.zhanghai.android.files.filelist.CreateArchiveTypeRadioGroup
+            <dev.vcgms.aapp.vaterialfiles.filelist.CreateArchiveTypeRadioGroup
                 android:id="@+id/typeGroup"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -64,7 +58,7 @@
                     android:textAlignment="viewStart"
                     android:textAppearance="?textAppearanceListItem"
                     android:visibility="@integer/create_archive_type_seven_z_visibility" />
-            </me.zhanghai.android.files.filelist.CreateArchiveTypeRadioGroup>
+            </dev.vcgms.aapp.vaterialfiles.filelist.CreateArchiveTypeRadioGroup>
 
             <com.google.android.material.textfield.TextInputLayout
                 android:id="@+id/passwordLayout"

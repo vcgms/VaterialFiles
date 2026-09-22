@@ -1,13 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
-
-<!--
-  ~ Copyright (c) 2019 Hai Zhang <dreaming.in.code.zh@gmail.com>
-  ~ All Rights Reserved.
-  -->
-
 <resources>
 
-    <string name="app_name">质感文件</string>
+    <string name="app_name">Vaterial Files</string>
 
     <string name="close">关闭</string>
     <string name="copy">复制</string>
@@ -249,6 +243,9 @@
     </plurals>
     <plurals name="file_list_subtitle_file_count_format">
         <item quantity="other">%1$,d 个文件</item>
+    </plurals>
+    <plurals name="file_item_directory_item_count_format">
+        <item quantity="other">%1$,d 个项目</item>
     </plurals>
     <string name="file_list_subtitle_separator">，</string>
     <string name="file_list_path_error_empty">路径不能为空</string>
@@ -634,13 +631,39 @@
     <string name="settings_show_pdf_thumbnail_pre_28_summary">可能导致应用在旧版 Android 上不稳定</string>
     <string name="settings_read_remote_files_for_thumbnail_title">读取远程文件以显示缩略图</string>
 
+    <string name="settings_display_size_title">显示大小</string>
+    <string-array name="settings_display_size_entries">
+        <item>大</item>
+        <item>中</item>
+        <item>小</item>
+        <item>更小</item>
+    </string-array>
+    <string name="settings_file_list_grid_columns_title">网格每行列数</string>
+    <string name="settings_security_title">安全</string>
+    <string name="settings_auth_title">身份验证</string>
+    <string-array name="settings_auth_entries">
+        <item>无</item>
+        <item>密码</item>
+        <item>指纹</item>
+        <item>系统认证</item>
+    </string-array>
+    <string name="auth_set_pin_title">设置 PIN</string>
+    <string name="auth_set_pin_message">设置一个数字 PIN 以保护应用</string>
+    <string name="auth_pin_hint">PIN</string>
+    <string name="auth_confirm_pin_hint">确认 PIN</string>
+    <string name="auth_pin_empty">PIN 不能为空</string>
+    <string name="auth_pin_mismatch">两次输入的 PIN 不一致</string>
+    <string name="auth_verify_title">需要身份验证</string>
+    <string name="auth_verify_message">请验证以继续</string>
+    <string name="auth_enter_pin">输入 PIN</string>
+    <string name="auth_use_pin">使用 PIN</string>
+    <string name="auth_unlock">解锁</string>
+    <string name="auth_biometric_title">解锁 Vaterial Files</string>
+    <string name="auth_biometric_subtitle">请验证身份以继续</string>
+    <string name="auth_incorrect_pin">PIN 不正确</string>
+    <string name="auth_no_device_credential">尚未设置锁屏。请先在系统设置中设置 PIN、图案或密码。</string>
+
     <string name="about_title">关于</string>
     <string name="about_version_title">版本</string>
-    <string name="about_github_title">在 GitHub 上查看</string>
     <string name="about_licenses_title">许可证</string>
-    <string name="about_privacy_policy_title">隐私权政策</string>
-    <string name="about_author_title">作者</string>
-    <string name="about_author_name_title">张海</string>
-    <string name="about_author_github_title">在 GitHub 上关注</string>
-    <string name="about_author_twitter_title">在 Twitter 上关注</string>
 </resources>

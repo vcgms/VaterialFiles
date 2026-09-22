@@ -1,15 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
-
-<!--
-  ~ Copyright (c) 2018 Hai Zhang <dreaming.in.code.zh@gmail.com>
-  ~ All Rights Reserved.
-  -->
-
 <resources
     xmlns:tools="http://schemas.android.com/tools"
     tools:ignore="ImpliedQuantity">
 
-    <string name="app_name">Material-skrár</string>
+    <string name="app_name">Vaterial Files</string>
 
     <string name="close">Loka</string>
     <string name="copy">Afrita</string>
@@ -668,11 +662,5 @@
 
     <string name="about_title">Um hugbúnaðinn</string>
     <string name="about_version_title">Útgáfa</string>
-    <string name="about_github_title">Skoða á GitHub</string>
     <string name="about_licenses_title">Notkunarleyfi</string>
-    <string name="about_privacy_policy_title">Persónuverndarstefna</string>
-    <string name="about_author_title">Höfundur</string>
-    <string name="about_author_name_title">Hai Zhang</string>
-    <string name="about_author_github_title">Fylgjast með á GitHub</string>
-    <string name="about_author_twitter_title">Fylgjast með á Twitter</string>
 </resources>

@@ -1,8 +1,3 @@
-/*
- * Copyright (c) 2020 Hai Zhang <dreaming.in.code.zh@gmail.com>
- * All Rights Reserved.
- */
-
 package com.hierynomus.smbj.share;
 
 import com.hierynomus.mssmb2.messages.SMB2ReadResponse;

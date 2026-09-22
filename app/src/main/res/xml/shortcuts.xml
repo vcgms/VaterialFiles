@@ -1,10 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
-
-<!--
-  ~ Copyright (c) 2019 Hai Zhang <dreaming.in.code.zh@gmail.com>
-  ~ All Rights Reserved.
-  -->
-
 <shortcuts
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
@@ -16,8 +10,8 @@
         android:shortcutShortLabel="@string/shortcut_downloads_title">
 
         <intent
-            android:action="me.zhanghai.android.files.intent.action.VIEW_DOWNLOADS"
-            android:targetPackage="me.zhanghai.android.files" />
+            android:action="dev.vcgms.aapp.vaterialfiles.intent.action.VIEW_DOWNLOADS"
+            android:targetPackage="dev.vcgms.aapp.vaterialfiles" />
     </shortcut>
 
     <shortcut
@@ -26,7 +20,7 @@
         android:shortcutShortLabel="@string/shortcut_ftp_server_title">
 
         <intent
-            android:action="me.zhanghai.android.files.intent.action.MANAGE_FTP_SERVER"
-            android:targetPackage="me.zhanghai.android.files" />
+            android:action="dev.vcgms.aapp.vaterialfiles.intent.action.MANAGE_FTP_SERVER"
+            android:targetPackage="dev.vcgms.aapp.vaterialfiles" />
     </shortcut>
 </shortcuts>

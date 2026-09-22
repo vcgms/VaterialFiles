@@ -1,8 +1,3 @@
-/*
- * Copyright (c) 2021 Hai Zhang <dreaming.in.code.zh@gmail.com>
- * All Rights Reserved.
- */
-
 package net.schmizz.sshj.sftp;
 
 import net.schmizz.concurrent.Promise;

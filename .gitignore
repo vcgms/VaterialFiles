@@ -8,3 +8,11 @@
 /signing.properties
 .DS_Store
 *.iml
+
+# Build outputs
+/apks/
+*.apk
+*.aab
+
+# Generated icon artwork intermediate (regenerable via art/make_icon_png.py)
+/icon.png

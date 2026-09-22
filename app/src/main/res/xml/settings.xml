@@ -1,21 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
-
-<!--
-  ~ Copyright (c) 2018 Hai Zhang <dreaming.in.code.zh@gmail.com>
-  ~ All Rights Reserved.
-  -->
-
 <PreferenceScreen
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto">
 
     <PreferenceCategory android:title="@string/settings_interface_title">
 
-        <me.zhanghai.android.files.settings.LocalePreference
+        <dev.vcgms.aapp.vaterialfiles.settings.LocalePreference
             android:key="@string/pref_key_locale"
             android:title="@string/settings_locale_title" />
 
-        <me.zhanghai.android.files.theme.custom.ThemeColorPreference
+        <dev.vcgms.aapp.vaterialfiles.theme.custom.ThemeColorPreference
             android:key="@string/pref_key_theme_color"
             android:title="@string/settings_theme_color_title"
             android:defaultValue="@string/pref_default_value_theme_color"
@@ -27,6 +21,22 @@
             android:title="@string/settings_material_design_3_title"
             android:defaultValue="@bool/pref_default_value_material_design_3"
             android:disableDependentsState="true" />
+
+        <rikka.preference.SimpleMenuPreference
+            android:key="@string/pref_key_display_size"
+            android:title="@string/settings_display_size_title"
+            android:defaultValue="@string/pref_default_value_display_size"
+            android:entries="@array/settings_display_size_entries"
+            android:entryValues="@array/pref_entry_values_display_size"
+            app:useSimpleSummaryProvider="true" />
+
+        <rikka.preference.SimpleMenuPreference
+            android:key="@string/pref_key_file_list_grid_columns"
+            android:title="@string/settings_file_list_grid_columns_title"
+            android:defaultValue="@string/pref_default_value_file_list_grid_columns"
+            android:entries="@array/settings_file_list_grid_columns_entries"
+            android:entryValues="@array/pref_entry_values_file_list_grid_columns"
+            app:useSimpleSummaryProvider="true" />
 
         <rikka.preference.SimpleMenuPreference
             android:key="@string/pref_key_night_mode"
@@ -57,24 +67,24 @@
 
     <PreferenceCategory android:title="@string/settings_behavior_title">
 
-        <me.zhanghai.android.files.settings.DefaultDirectoryPreference
+        <dev.vcgms.aapp.vaterialfiles.settings.DefaultDirectoryPreference
             android:key="@string/pref_key_file_list_default_directory"
             android:title="@string/settings_default_directory_title"
             app:useSimpleSummaryProvider="true" />
 
-        <me.zhanghai.android.files.settings.StoragesPreference
+        <dev.vcgms.aapp.vaterialfiles.settings.StoragesPreference
             android:title="@string/settings_storages_title"
             android:summary="@string/settings_storages_summary_empty" />
 
-        <me.zhanghai.android.files.settings.StandardDirectoriesPreference
+        <dev.vcgms.aapp.vaterialfiles.settings.StandardDirectoriesPreference
             android:title="@string/settings_standard_directories_title"
             android:summary="@string/settings_standard_directories_summary_empty" />
 
-        <me.zhanghai.android.files.settings.BookmarkDirectoriesPreference
+        <dev.vcgms.aapp.vaterialfiles.settings.BookmarkDirectoriesPreference
             android:title="@string/settings_bookmark_directories_title"
             android:summary="@string/settings_bookmark_directories_summary_empty" />
 
-        <me.zhanghai.android.files.settings.RootStrategyPreference
+        <dev.vcgms.aapp.vaterialfiles.settings.RootStrategyPreference
             android:key="@string/pref_key_root_strategy"
             android:title="@string/settings_root_strategy_title"
             android:defaultValue="@string/pref_default_value_root_strategy"
@@ -82,7 +92,7 @@
             android:entryValues="@array/pref_entry_values_root_strategy"
             app:useSimpleSummaryProvider="true" />
 
-        <me.zhanghai.android.files.settings.CharsetPreference
+        <dev.vcgms.aapp.vaterialfiles.settings.CharsetPreference
             android:key="@string/pref_key_archive_file_name_encoding"
             android:title="@string/settings_archive_file_name_encoding_title"
             android:defaultValue="@string/pref_default_value_archive_file_name_encoding"
@@ -107,5 +117,16 @@
             android:key="@string/pref_key_read_remote_files_for_thumbnail"
             android:title="@string/settings_read_remote_files_for_thumbnail_title"
             android:defaultValue="@bool/pref_default_value_read_remote_files_for_thumbnail" />
+    </PreferenceCategory>
+
+    <PreferenceCategory android:title="@string/settings_security_title">
+
+        <rikka.preference.SimpleMenuPreference
+            android:key="@string/pref_key_auth_mode"
+            android:title="@string/settings_auth_title"
+            android:defaultValue="@string/pref_default_value_auth_mode"
+            android:entries="@array/settings_auth_entries"
+            android:entryValues="@array/pref_entry_values_auth_mode"
+            app:useSimpleSummaryProvider="true" />
     </PreferenceCategory>
 </PreferenceScreen>

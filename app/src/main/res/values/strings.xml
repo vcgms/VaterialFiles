@@ -1,13 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
-
-<!--
-  ~ Copyright (c) 2018 Hai Zhang <dreaming.in.code.zh@gmail.com>
-  ~ All Rights Reserved.
-  -->
-
 <resources>
 
-    <string name="app_name">Material Files</string>
+    <string name="app_name">Vaterial Files</string>
 
     <string name="close">Close</string>
     <string name="copy">Copy</string>
@@ -281,6 +275,10 @@
     <plurals name="file_list_subtitle_file_count_format">
         <item quantity="one">%1$,d file</item>
         <item quantity="other">%1$,d files</item>
+    </plurals>
+    <plurals name="file_item_directory_item_count_format">
+        <item quantity="one">%1$,d item</item>
+        <item quantity="other">%1$,d items</item>
     </plurals>
     <string name="file_list_subtitle_separator">,\u0020</string>
     <string name="file_list_path_error_empty">Path cannot be empty</string>
@@ -744,6 +742,22 @@
     <string name="settings_theme_color_title">Theme color</string>
     <string name="settings_theme_color_summary">Color that appears most frequently in the app</string>
     <string name="settings_material_design_3_title">Material Design 3</string>
+    <string name="settings_display_size_title">Display size</string>
+    <string-array name="settings_display_size_entries">
+        <item>Large</item>
+        <item>Medium</item>
+        <item>Small</item>
+        <item>Smaller</item>
+    </string-array>
+    <string name="settings_file_list_grid_columns_title">Grid columns</string>
+    <string-array name="settings_file_list_grid_columns_entries">
+        <item>2</item>
+        <item>3</item>
+        <item>4</item>
+        <item>5</item>
+        <item>6</item>
+        <item>7</item>
+    </string-array>
     <string name="settings_night_mode_title">Night mode</string>
     <string-array name="settings_night_mode_entries">
         <item>Follow system</item>
@@ -794,15 +808,33 @@
     <string name="settings_show_pdf_thumbnail_pre_28_summary">Might make the app unstable on older versions of Android</string>
     <string name="settings_read_remote_files_for_thumbnail_title">Read remote files for thumbnail</string>
 
+    <string name="settings_security_title">Security</string>
+    <string name="settings_auth_title">Authentication</string>
+    <string-array name="settings_auth_entries">
+        <item>None</item>
+        <item>Password</item>
+        <item>Fingerprint</item>
+        <item>System</item>
+    </string-array>
+    <string name="auth_set_pin_title">Set PIN</string>
+    <string name="auth_set_pin_message">Set a numeric PIN to protect the app</string>
+    <string name="auth_pin_hint">PIN</string>
+    <string name="auth_confirm_pin_hint">Confirm PIN</string>
+    <string name="auth_pin_empty">PIN cannot be empty</string>
+    <string name="auth_pin_mismatch">PINs do not match</string>
+    <string name="auth_verify_title">Authentication required</string>
+    <string name="auth_verify_message">Verify to continue</string>
+    <string name="auth_enter_pin">Enter PIN</string>
+    <string name="auth_use_pin">Use PIN</string>
+    <string name="auth_unlock">Unlock</string>
+    <string name="auth_biometric_title">Unlock Vaterial Files</string>
+    <string name="auth_biometric_subtitle">Verify your identity to continue</string>
+    <string name="auth_incorrect_pin">Incorrect PIN</string>
+    <string name="auth_no_device_credential">No screen lock is set. Set a PIN, pattern or password in system settings first.</string>
+
     <string name="about_title">About</string>
     <string name="about_version_title">Version</string>
-    <string name="about_github_title">View on GitHub</string>
     <string name="about_licenses_title">Licenses</string>
-    <string name="about_privacy_policy_title">Privacy policy</string>
-    <string name="about_author_title">Author</string>
-    <string name="about_author_name_title">Hai Zhang</string>
-    <string name="about_author_github_title">Follow on GitHub</string>
-    <string name="about_author_twitter_title">Follow on Twitter</string>
 
     <string name="shortcut_downloads_title" translatable="false">@string/navigation_standard_directory_downloads</string>
     <string name="shortcut_ftp_server_title" translatable="false">@string/ftp_server_title</string>

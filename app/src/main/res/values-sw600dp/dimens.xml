@@ -1,10 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
-
-<!--
-  ~ Copyright (c) 2018 Hai Zhang <dreaming.in.code.zh@gmail.com>
-  ~ All Rights Reserved.
-  -->
-
 <resources>
     <dimen name="screen_edge_margin">24dp</dimen>
     <dimen name="screen_edge_margin_minus_4dp">20dp</dimen>

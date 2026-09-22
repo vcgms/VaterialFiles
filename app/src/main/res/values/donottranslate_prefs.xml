@@ -1,10 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
-
-<!--
-  ~ Copyright (c) 2018 Hai Zhang <dreaming.in.code.zh@gmail.com>
-  ~ All Rights Reserved.
-  -->
-
 <resources>
 
     <string name="pref_default_value_empty" />
@@ -17,6 +11,16 @@
     <bool name="pref_default_value_file_list_show_hidden_files">false</bool>
     <string name="pref_key_file_list_view_type">key_file_list_view_type</string>
     <string name="pref_default_value_file_list_view_type">0</string>
+    <string name="pref_key_file_list_grid_columns">key_file_list_grid_columns</string>
+    <string name="pref_default_value_file_list_grid_columns">0</string>
+    <string-array name="pref_entry_values_file_list_grid_columns">
+        <item>0</item>
+        <item>1</item>
+        <item>2</item>
+        <item>3</item>
+        <item>4</item>
+        <item>5</item>
+    </string-array>
     <string name="pref_key_file_list_sort_options">key_file_list_sort_options</string>
     <string name="pref_key_create_archive_type">key_create_archive_type</string>
 
@@ -38,6 +42,14 @@
     <string name="pref_default_value_theme_color">0</string>
     <string name="pref_key_material_design_3">key_material_design_3</string>
     <bool name="pref_default_value_material_design_3">false</bool>
+    <string name="pref_key_display_size">key_display_size</string>
+    <string name="pref_default_value_display_size">1</string>
+    <string-array name="pref_entry_values_display_size">
+        <item>0</item>
+        <item>1</item>
+        <item>2</item>
+        <item>3</item>
+    </string-array>
     <string name="pref_key_night_mode">key_night_mode</string>
     <string name="pref_default_value_night_mode">0</string>
     <string-array name="pref_entry_values_night_mode">
@@ -82,4 +94,14 @@
     <bool name="pref_visible_show_pdf_thumbnail_pre_28">true</bool>
     <string name="pref_key_read_remote_files_for_thumbnail">key_read_remote_files_for_thumbnail</string>
     <bool name="pref_default_value_read_remote_files_for_thumbnail">true</bool>
+    <string name="pref_key_auth_mode">key_auth_mode</string>
+    <string name="pref_default_value_auth_mode">0</string>
+    <string-array name="pref_entry_values_auth_mode">
+        <item>0</item>
+        <item>1</item>
+        <item>2</item>
+        <item>3</item>
+    </string-array>
+    <string name="pref_key_auth_pin_salt">key_auth_pin_salt</string>
+    <string name="pref_key_auth_pin_hash">key_auth_pin_hash</string>
 </resources>

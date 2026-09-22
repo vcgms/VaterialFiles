@@ -1,8 +1,3 @@
-/*
- * Copyright (c) 2022 Hai Zhang <dreaming.in.code.zh@gmail.com>
- * All Rights Reserved.
- */
-
 #include <jni.h>
 
 JNIEXPORT jint JNI_OnLoad(JavaVM *vm, void *reserved) {

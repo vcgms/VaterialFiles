@@ -1,0 +1,17 @@
+package dev.vcgms.aapp.vaterialfiles.provider.sftp.client
+
+import java.security.Security
+import org.bouncycastle.jce.provider.BouncyCastleProvider
+
+// @see https://android-developers.googleblog.com/2018/03/cryptography-changes-in-android-p.html
+// @see net.schmizz.sshj.common.SecurityUtils
+// @see net.schmizz.sshj.DefaultConfig.DefaultConfig
+// SSHJ requires BouncyCastle to be registered before enabling most functionality by default, so we
+// better keep BouncyCastle registered.
+object SecurityProviderHelper {
+    fun init() {
+        val bouncyCastleProvider = BouncyCastleProvider()
+        Security.removeProvider(bouncyCastleProvider.name)
+        Security.addProvider(bouncyCastleProvider)
+    }
+}

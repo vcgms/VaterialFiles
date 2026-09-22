@@ -1,15 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
-
-<!--
-  ~ Copyright (c) 2018 Hai Zhang <dreaming.in.code.zh@gmail.com>
-  ~ All Rights Reserved.
-  -->
-
 <resources
     xmlns:tools="http://schemas.android.com/tools"
     tools:ignore="ImpliedQuantity">
 
-    <string name="app_name">Material Files</string>
+    <string name="app_name">Vaterial Files</string>
 
     <string name="close">Fechar</string>
     <string name="copy">Copiar</string>
@@ -699,11 +693,5 @@
 
     <string name="about_title">Sobre</string>
     <string name="about_version_title">Versão</string>
-    <string name="about_github_title">Ver no GitHub</string>
     <string name="about_licenses_title">Licenças</string>
-    <string name="about_privacy_policy_title">Política de privacidade</string>
-    <string name="about_author_title">Autor</string>
-    <string name="about_author_name_title">Hai Zhang</string>
-    <string name="about_author_github_title">Seguir no GitHub</string>
-    <string name="about_author_twitter_title">Seguir no Twitter</string>
 </resources>

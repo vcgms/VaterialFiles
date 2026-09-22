@@ -1,13 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
-
-<!--
-  ~ Copyright (c) 2018 Hai Zhang <dreaming.in.code.zh@gmail.com>
-  ~ All Rights Reserved.
-  -->
-
 <resources>
 
-    <string name="app_name">Material Files</string>
+    <string name="app_name">Vaterial Files</string>
 
     <string name="close">Tanca</string>
     <string name="copy">Copia</string>
@@ -606,11 +600,5 @@
 
     <string name="about_title">Quant a</string>
     <string name="about_version_title">Versió</string>
-    <string name="about_github_title">Mostra a GitHub</string>
     <string name="about_licenses_title">Llicències</string>
-    <string name="about_privacy_policy_title">Política de confidencialitat</string>
-    <string name="about_author_title">Autor</string>
-    <string name="about_author_name_title">Hai Zhang</string>
-    <string name="about_author_github_title">Segueix a GitHub</string>
-    <string name="about_author_twitter_title">Segueix al Twitter</string>
 </resources>
