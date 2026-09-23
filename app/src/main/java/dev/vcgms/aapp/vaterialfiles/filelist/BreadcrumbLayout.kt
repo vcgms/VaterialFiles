@@ -3,6 +3,7 @@ package dev.vcgms.aapp.vaterialfiles.filelist
 import android.content.Context
 import android.content.res.ColorStateList
 import android.util.AttributeSet
+import android.view.DragEvent
 import android.view.View
 import android.widget.HorizontalScrollView
 import android.widget.LinearLayout
@@ -117,6 +118,9 @@ class BreadcrumbLayout : HorizontalScrollView {
         this.listener = listener
     }
 
+    // Invoked with the corresponding path when a dragged file is dropped onto a breadcrumb entry.
+    var dropListener: ((Path) -> Unit)? = null
+
     fun setData(data: BreadcrumbData) {
         if (this::data.isInitialized && this.data == data) {
             return
@@ -159,6 +163,20 @@ class BreadcrumbLayout : HorizontalScrollView {
             binding.root.setOnLongClickListener {
                 menu.show()
                 true
+            }
+            // Accept a dragged file dropped onto this breadcrumb entry to target its directory.
+            binding.root.setOnDragListener { view, event ->
+                when (event.action) {
+                    DragEvent.ACTION_DRAG_LOCATION -> dropListener != null
+                    DragEvent.ACTION_DROP -> {
+                        val index = itemsLayout.indexOfChild(view)
+                        if (::data.isInitialized && index in data.paths.indices) {
+                            dropListener?.invoke(data.paths[index])
+                        }
+                        true
+                    }
+                    else -> false
+                }
             }
             binding.text.setTextColor(itemColor)
             binding.arrowImage.imageTintList = itemColor

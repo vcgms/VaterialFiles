@@ -251,7 +251,15 @@
     <string name="file_list_path_error_empty">路径不能为空</string>
     <string name="file_list_path_error_invalid">无效路径</string>
     <string name="file_list_action_view_sort">视图和排序</string>
+    <string name="file_list_action_dual_pane">双列模式</string>
+    <string name="file_list_dual_pane_move_here">移动到这里</string>
+    <string name="file_list_dual_pane_copy_here">复制到这里</string>
+    <string name="file_item_action_move_to_right">移动到右边</string>
+    <string name="file_item_action_copy_to_right">复制到右边</string>
+    <string name="file_item_action_move_to_left">移动到左边</string>
+    <string name="file_item_action_copy_to_left">复制到左边</string>
     <string name="file_list_action_view_list">列表</string>
+    <string name="file_list_action_view_dual">双列</string>
     <string name="file_list_action_view_grid">网格</string>
     <string name="file_list_action_sort_by_name">名称</string>
     <string name="file_list_action_sort_by_type">类型</string>
@@ -282,6 +290,7 @@
 
     <string name="file_item_description_separator">"    "</string>
     <string name="file_item_action_open_with">打开方式</string>
+    <string name="file_item_action_select">多选</string>
     <string name="file_item_action_extract">提取</string>
     <string name="file_item_action_archive">压缩</string>
     <string name="file_item_action_properties">属性</string>
@@ -586,7 +595,7 @@
     <string name="settings_locale_title">语言</string>
     <string name="settings_theme_color_title">主题色</string>
     <string name="settings_theme_color_summary">应用中最常见的颜色</string>
-    <string name="settings_material_design_3_title">质感设计 3</string>
+    <string name="settings_material_you_title">Material You</string>
     <string name="settings_night_mode_title">夜间模式</string>
     <string-array name="settings_night_mode_entries">
         <item>跟随系统</item>

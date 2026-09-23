@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <item name="action_move_to_other_pane" type="id" />
+    <item name="action_copy_to_other_pane" type="id" />
+    <item name="action_select" type="id" />
+</resources>

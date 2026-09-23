@@ -11,6 +11,8 @@
     <bool name="pref_default_value_file_list_show_hidden_files">false</bool>
     <string name="pref_key_file_list_view_type">key_file_list_view_type</string>
     <string name="pref_default_value_file_list_view_type">0</string>
+    <string name="pref_key_file_list_dual_pane">key_file_list_dual_pane</string>
+    <bool name="pref_default_value_file_list_dual_pane">false</bool>
     <string name="pref_key_file_list_grid_columns">key_file_list_grid_columns</string>
     <string name="pref_default_value_file_list_grid_columns">0</string>
     <string-array name="pref_entry_values_file_list_grid_columns">
@@ -40,8 +42,8 @@
     <string name="pref_key_locale">key_locale</string>
     <string name="pref_key_theme_color">key_theme_color</string>
     <string name="pref_default_value_theme_color">0</string>
-    <string name="pref_key_material_design_3">key_material_design_3</string>
-    <bool name="pref_default_value_material_design_3">false</bool>
+    <string name="pref_key_material_you">key_material_you</string>
+    <bool name="pref_default_value_material_you">true</bool>
     <string name="pref_key_display_size">key_display_size</string>
     <string name="pref_default_value_display_size">1</string>
     <string-array name="pref_entry_values_display_size">

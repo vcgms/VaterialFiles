@@ -12,6 +12,7 @@ import android.os.Environment
 import android.os.Handler
 import android.os.Looper
 import android.text.TextUtils
+import android.view.DragEvent
 import android.view.KeyCharacterMap
 import android.view.KeyEvent
 import android.view.LayoutInflater
@@ -21,6 +22,7 @@ import android.view.MenuItem
 import android.view.View
 import android.view.ViewGroup
 import android.widget.EditText
+import android.widget.LinearLayout
 import android.widget.ProgressBar
 import android.widget.TextView
 import androidx.activity.OnBackPressedCallback
@@ -176,6 +178,19 @@ class FileListFragment : Fragment(), BreadcrumbLayout.Listener, FileListAdapter.
 
     private lateinit var adapter: FileListAdapter
 
+    private var leftPane: FileListPaneFragment? = null
+
+    private var rightPane: FileListPaneFragment? = null
+
+    private var activePane: FileListPaneFragment? = null
+
+    // The source file of an in-flight single-pane drag, cleared once the drag ends.
+    private var draggingFile: FileItem? = null
+
+    private var pendingSinglePaneDrag: PendingSinglePaneDrag? = null
+
+    private var navigateUpBackCallback: OnBackPressedCallback? = null
+
     private val debouncedSearchRunnable = DebouncedRunnable(Handler(Looper.getMainLooper()), 1000) {
         if (!isResumed || !viewModel.isSearchViewExpanded) {
             return@DebouncedRunnable
@@ -186,6 +201,14 @@ class FileListFragment : Fragment(), BreadcrumbLayout.Listener, FileListAdapter.
         }
         viewModel.search(query)
     }
+
+    private val isDualPane: Boolean
+        get() = Settings.FILE_LIST_DUAL_PANE.valueCompat
+
+    // In dual-pane mode, path/paste-related operations act on the active pane's view model;
+    // otherwise they act on this fragment's own view model.
+    private val activeViewModel: FileListViewModel
+        get() = if (isDualPane) activePane?.viewModelOrNull ?: viewModel else viewModel
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -214,7 +237,6 @@ class FileListFragment : Fragment(), BreadcrumbLayout.Listener, FileListAdapter.
         }
         navigationFragment.listener = this
         val activity = requireActivity() as AppCompatActivity
-        activity.setTitle(R.string.file_list_title)
         activity.setSupportActionBar(binding.toolbar)
         overlayActionMode = OverlayToolbarActionMode(binding.overlayToolbar, binding.toolbar)
         bottomActionMode = PersistentBarLayoutToolbarActionMode(
@@ -229,6 +251,7 @@ class FileListFragment : Fragment(), BreadcrumbLayout.Listener, FileListAdapter.
         }
         binding.appBarLayout.syncBackgroundColorTo(binding.overlayToolbar)
         binding.breadcrumbLayout.setListener(this)
+        binding.breadcrumbLayout.dropListener = ::onBreadcrumbDrop
         if (!(activity.hasSw600Dp && activity.isOrientationLandscape)) {
             binding.swipeRefreshLayout.setProgressViewEndTarget(
                 true, binding.swipeRefreshLayout.progressViewEndOffset
@@ -237,8 +260,13 @@ class FileListFragment : Fragment(), BreadcrumbLayout.Listener, FileListAdapter.
         binding.swipeRefreshLayout.setOnRefreshListener { this.refresh() }
         layoutManager = GridLayoutManager(activity, 1)
         binding.recyclerView.layoutManager = layoutManager
-        adapter = FileListAdapter(this)
+        adapter = FileListAdapter(this).apply {
+            hostFragment = this@FileListFragment
+            // Single-pane list mode: long press starts a drag that can be dropped onto a directory.
+            itemDragListener = { itemView, file -> startSinglePaneDrag(itemView, file) }
+        }
         binding.recyclerView.adapter = adapter
+        binding.recyclerView.setOnDragListener { _, event -> handleSinglePaneDragEvent(event) }
         val fastScroller = ThemedFastScroller.create(binding.recyclerView)
         binding.recyclerView.setOnApplyWindowInsetsListener(
             ScrollingViewOnApplyWindowInsetsListener(binding.recyclerView, fastScroller)
@@ -259,12 +287,13 @@ class FileListFragment : Fragment(), BreadcrumbLayout.Listener, FileListAdapter.
         addOnBackPressedCallback(
             object : OnBackPressedCallback(false) {
                 override fun handleOnBackPressed() {
-                    viewModel.navigateUp()
+                    navigateUp()
                 }
             }
                 .also { callback ->
+                    navigateUpBackCallback = callback
                     viewModel.breadcrumbLiveData.observe(viewLifecycleOwner) {
-                        callback.isEnabled = viewModel.canNavigateUpBreadcrumb
+                        updateNavigateUpBackCallbackEnabled()
                     }
                 }
         )
@@ -340,7 +369,9 @@ class FileListFragment : Fragment(), BreadcrumbLayout.Listener, FileListAdapter.
             onSearchViewExpandedChanged(it)
         }
         viewModel.breadcrumbLiveData.observe(viewLifecycleOwner) {
-            binding.breadcrumbLayout.setData(it)
+            if (!isDualPane) {
+                binding.breadcrumbLayout.setData(it)
+            }
         }
         viewModel.viewTypeLiveData.observe(viewLifecycleOwner) { onViewTypeChanged(it) }
         // Live data only calls observeForever() on its sources when it is active, so we have to
@@ -363,6 +394,17 @@ class FileListFragment : Fragment(), BreadcrumbLayout.Listener, FileListAdapter.
         viewModel.fileListLiveData.observe(viewLifecycleOwner) { onFileListChanged(it) }
         Settings.FILE_LIST_SHOW_HIDDEN_FILES.observe(viewLifecycleOwner) {
             onShowHiddenFilesChanged(it)
+        }
+        Settings.FILE_LIST_DUAL_PANE.observe(viewLifecycleOwner) { onDualPaneChanged(it) }
+        childFragmentManager.setFragmentResultListener(
+            MoveCopyDialogFragment.REQUEST_KEY, viewLifecycleOwner
+        ) { _, bundle ->
+            onMoveCopyDialogResult(bundle.getInt(MoveCopyDialogFragment.KEY_RESULT))
+        }
+        childFragmentManager.setFragmentResultListener(
+            FileActionsDialogFragment.REQUEST_KEY, viewLifecycleOwner
+        ) { _, bundle ->
+            adapter.onItemActionsDialogResult(bundle.getInt(FileActionsDialogFragment.KEY_ACTION_ID))
         }
     }
 
@@ -451,31 +493,37 @@ class FileListFragment : Fragment(), BreadcrumbLayout.Listener, FileListAdapter.
                 true
             }
             R.id.action_view_list -> {
+                Settings.FILE_LIST_DUAL_PANE.putValue(false)
                 viewModel.viewType = FileViewType.LIST
                 true
             }
+            R.id.action_view_dual -> {
+                Settings.FILE_LIST_DUAL_PANE.putValue(true)
+                true
+            }
             R.id.action_view_grid -> {
+                Settings.FILE_LIST_DUAL_PANE.putValue(false)
                 viewModel.viewType = FileViewType.GRID
                 true
             }
             R.id.action_sort_by_name -> {
-                viewModel.setSortBy(By.NAME)
+                activeViewModel.setSortBy(By.NAME)
                 true
             }
             R.id.action_sort_by_type -> {
-                viewModel.setSortBy(By.TYPE)
+                activeViewModel.setSortBy(By.TYPE)
                 true
             }
             R.id.action_sort_by_size -> {
-                viewModel.setSortBy(By.SIZE)
+                activeViewModel.setSortBy(By.SIZE)
                 true
             }
             R.id.action_sort_by_last_modified -> {
-                viewModel.setSortBy(By.LAST_MODIFIED)
+                activeViewModel.setSortBy(By.LAST_MODIFIED)
                 true
             }
             R.id.action_sort_order_ascending -> {
-                viewModel.setSortOrder(
+                activeViewModel.setSortOrder(
                     if (!menuBinding.sortOrderAscendingItem.isChecked) {
                         Order.ASCENDING
                     } else {
@@ -485,11 +533,14 @@ class FileListFragment : Fragment(), BreadcrumbLayout.Listener, FileListAdapter.
                 true
             }
             R.id.action_sort_directories_first -> {
-                viewModel.setSortDirectoriesFirst(!menuBinding.sortDirectoriesFirstItem.isChecked)
+                activeViewModel.setSortDirectoriesFirst(
+                    !menuBinding.sortDirectoriesFirstItem.isChecked
+                )
                 true
             }
             R.id.action_view_sort_path_specific -> {
-                viewModel.isViewSortPathSpecific = !menuBinding.viewSortPathSpecificItem.isChecked
+                activeViewModel.isViewSortPathSpecific =
+                    !menuBinding.viewSortPathSpecificItem.isChecked
                 true
             }
             R.id.action_new_task -> {
@@ -574,6 +625,8 @@ class FileListFragment : Fragment(), BreadcrumbLayout.Listener, FileListAdapter.
     }
 
     private fun onCurrentPathChanged(path: Path) {
+        updateToolbarTitle(path)
+        updateToolbarSubtitle()
         updateOverlayToolbar()
         updateBottomToolbar()
     }
@@ -585,11 +638,7 @@ class FileListFragment : Fragment(), BreadcrumbLayout.Listener, FileListAdapter.
     private fun onFileListChanged(stateful: Stateful<List<FileItem>>) {
         val files = stateful.value
         val isSearching = viewModel.searchState.isSearching
-        when {
-            stateful is Failure -> binding.toolbar.setSubtitle(R.string.error)
-            stateful is Loading && !isSearching -> binding.toolbar.setSubtitle(R.string.loading)
-            else -> binding.toolbar.subtitle = getSubtitle(files!!)
-        }
+        updateToolbarSubtitle()
         val hasFiles = !files.isNullOrEmpty()
         binding.swipeRefreshLayout.isRefreshing = stateful is Loading && (hasFiles || isSearching)
         binding.progress.fadeToVisibilityUnsafe(stateful is Loading && !(hasFiles || isSearching))
@@ -615,6 +664,208 @@ class FileListFragment : Fragment(), BreadcrumbLayout.Listener, FileListAdapter.
             viewModel.pendingState?.let { layoutManager.onRestoreInstanceState(it) }
         }
     }
+
+    // The toolbar title shows the current directory name of the active column (single- or
+    // dual-pane), falling back to the generic title for the root. Callers that just observed a
+    // path change should pass the new path so the title never reads a stale live-data value.
+    private fun updateToolbarTitle(path: Path? = null) {
+        val name = path?.name
+            ?: runCatching { activeViewModel.currentPath.name }.getOrDefault("")
+        binding.toolbar.title = name.ifEmpty { getString(R.string.file_list_title) }
+    }
+
+    private fun updateToolbarSubtitle() {
+        // The active view model's file list state is a lazily mapped live data and may not have a
+        // value yet right after the path changes, so skip until it is ready.
+        val stateful = runCatching { activeViewModel.fileListStateful }.getOrNull() ?: return
+        val files = stateful.value
+        val isSearching = runCatching { activeViewModel.searchState.isSearching }.getOrDefault(false)
+        when {
+            stateful is Failure -> binding.toolbar.setSubtitle(R.string.error)
+            stateful is Loading && !isSearching -> binding.toolbar.setSubtitle(R.string.loading)
+            else -> files?.let { binding.toolbar.subtitle = getSubtitle(it) }
+        }
+    }
+
+    private fun onDualPaneChanged(enabled: Boolean) {
+        binding.dualPaneContainer?.isVisible = enabled
+        binding.contentLayout.isVisible = !enabled
+        updateToolbarSubtitle()
+        if (enabled) {
+            if (overlayActionMode.isActive) {
+                overlayActionMode.finish()
+            }
+            // Dual-pane columns always use the list layout, never grid.
+            viewModel.viewType = FileViewType.LIST
+            ensurePanes()
+            updateActivePaneVisual()
+            updateTopBreadcrumbForActivePane()
+            updateToolbarTitle()
+        } else {
+            if (bottomActionMode.isActive) {
+                bottomActionMode.finish()
+            }
+            binding.breadcrumbLayout.setData(viewModel.breadcrumbLiveData.valueCompat)
+        }
+        updateViewSortMenuItems()
+        updateSelectAllMenuItem()
+        updateBottomToolbar()
+        updateNavigateUpBackCallbackEnabled()
+    }
+
+    private fun updateTopBreadcrumbForActivePane() {
+        if (!isDualPane) {
+            return
+        }
+        activePane?.breadcrumbDataOrNull?.let { binding.breadcrumbLayout.setData(it) }
+    }
+
+    private fun onPaneBreadcrumbChanged(pane: FileListPaneFragment, data: BreadcrumbData) {
+        if (isDualPane && activePane === pane) {
+            binding.breadcrumbLayout.setData(data)
+            updateToolbarTitle(data.paths.getOrNull(data.selectedIndex))
+            updateToolbarSubtitle()
+            updateNavigateUpBackCallbackEnabled()
+        }
+    }
+
+    private fun ensurePanes() {
+        if (leftPane != null || rightPane != null) {
+            return
+        }
+        val leftPane = FileListPaneFragment()
+        val rightPane = FileListPaneFragment()
+        childFragmentManager.commit {
+            add(R.id.leftPane, leftPane)
+            add(R.id.rightPane, rightPane)
+        }
+        this.leftPane = leftPane
+        this.rightPane = rightPane
+        leftPane.paneId = DualPaneController.PANE_LEFT
+        rightPane.paneId = DualPaneController.PANE_RIGHT
+        DualPaneController.register(DualPaneController.PANE_LEFT, leftPane)
+        DualPaneController.register(DualPaneController.PANE_RIGHT, rightPane)
+        val path = viewModel.currentPath
+        leftPane.initialize(path)
+        rightPane.initialize(path)
+        leftPane.activeChangedListener = ::onPaneActivated
+        rightPane.activeChangedListener = ::onPaneActivated
+        leftPane.breadcrumbListener = { data -> onPaneBreadcrumbChanged(leftPane, data) }
+        rightPane.breadcrumbListener = { data -> onPaneBreadcrumbChanged(rightPane, data) }
+        leftPane.pasteStateListener = { onPanePasteStateChanged() }
+        rightPane.pasteStateListener = { onPanePasteStateChanged() }
+        // Refresh the toolbar subtitle when the active pane's file list finishes loading.
+        leftPane.subtitleListener = {
+            if (isDualPane && activePane === leftPane) {
+                updateToolbarSubtitle()
+            }
+        }
+        rightPane.subtitleListener = {
+            if (isDualPane && activePane === rightPane) {
+                updateToolbarSubtitle()
+            }
+        }
+        activePane = when (DualPaneController.activePaneId) {
+            DualPaneController.PANE_RIGHT -> rightPane
+            else -> leftPane
+        }
+    }
+
+    private fun onPaneActivated(pane: FileListPaneFragment) {
+        if (activePane !== pane) {
+            activePane = pane
+            DualPaneController.activePaneId = pane.paneId
+            updateActivePaneVisual()
+            updateTopBreadcrumbForActivePane()
+            updateViewSortMenuItems()
+            updateBottomToolbar()
+            updateNavigateUpBackCallbackEnabled()
+            updateToolbarTitle(
+                pane.breadcrumbDataOrNull?.let { it.paths.getOrNull(it.selectedIndex) }
+            )
+            updateToolbarSubtitle()
+        }
+    }
+
+    private fun updateActivePaneVisual() {
+        leftPane?.setActive(activePane === leftPane)
+        rightPane?.setActive(activePane === rightPane)
+    }
+
+    private fun onPanePasteStateChanged() {
+        if (isDualPane) {
+            updateBottomToolbar()
+        }
+    }
+
+    // Starts a single-pane drag for the file; dropping onto a directory moves or copies it there.
+    private fun startSinglePaneDrag(view: View, file: FileItem) {
+        draggingFile = file
+        view.startDragAndDrop(ClipData.newPlainText("", ""), View.DragShadowBuilder(view), view, 0)
+    }
+
+    private fun handleSinglePaneDragEvent(event: DragEvent): Boolean {
+        return when (event.action) {
+            // Accepting drag-location events is required for this view to receive ACTION_DROP.
+            DragEvent.ACTION_DRAG_LOCATION -> draggingFile != null
+            DragEvent.ACTION_DROP -> {
+                val file = draggingFile ?: return false
+                draggingFile = null
+                val targetDirectory = findSinglePaneDropTargetDirectory(event, file) ?: return false
+                pendingSinglePaneDrag = PendingSinglePaneDrag(file, targetDirectory)
+                MoveCopyDialogFragment.show(this)
+                true
+            }
+            DragEvent.ACTION_DRAG_ENDED -> {
+                // A handled drop clears the source above; a cancelled drag ends here.
+                draggingFile = null
+                true
+            }
+            else -> false
+        }
+    }
+
+    // Dropping a dragged file onto a breadcrumb entry moves/copies it into that ancestor directory.
+    private fun onBreadcrumbDrop(path: Path) {
+        val file = draggingFile ?: return
+        draggingFile = null
+        pendingSinglePaneDrag = PendingSinglePaneDrag(file, path)
+        MoveCopyDialogFragment.show(this)
+    }
+
+    private fun findSinglePaneDropTargetDirectory(event: DragEvent, draggedFile: FileItem): Path? {
+        val recyclerView = binding.recyclerView
+        val x = event.x - recyclerView.left
+        val y = event.y - recyclerView.top
+        val child = recyclerView.findChildViewUnder(x, y) ?: return null
+        val position = recyclerView.getChildAdapterPosition(child)
+        if (position == RecyclerView.NO_POSITION) {
+            return null
+        }
+        val file = adapter.getItem(position)
+        return if (file.attributes.isDirectory && file.path != draggedFile.path) file.path else null
+    }
+
+    private fun onMoveCopyDialogResult(result: Int) {
+        val pending = pendingSinglePaneDrag ?: return
+        pendingSinglePaneDrag = null
+        when (result) {
+            MoveCopyDialogFragment.RESULT_MOVE -> {
+                viewModel.addToPasteState(false, fileItemSetOf(pending.file))
+                pasteFiles(pending.targetDirectory)
+            }
+            MoveCopyDialogFragment.RESULT_COPY -> {
+                viewModel.addToPasteState(true, fileItemSetOf(pending.file))
+                pasteFiles(pending.targetDirectory)
+            }
+            else -> {}
+        }
+    }
+
+    private data class PendingSinglePaneDrag(
+        val file: FileItem,
+        val targetDirectory: Path
+    )
 
     private fun getSubtitle(files: List<FileItem>): String {
         val directoryCount = files.count { it.attributes.isDirectory }
@@ -674,13 +925,23 @@ class FileListFragment : Fragment(), BreadcrumbLayout.Listener, FileListAdapter.
         if (searchViewExpanded) {
             return
         }
-        val viewType = viewModel.viewType
-        val checkedViewTypeItem = when (viewType) {
-            FileViewType.LIST -> menuBinding.viewListItem
-            FileViewType.GRID -> menuBinding.viewGridItem
+        val viewType = activeViewModel.viewType
+        // The view mode is a three-way radio choice: single-column list, dual panes, or
+        // single-column grid; dual panes takes precedence over the item layout when active.
+        // Uncheck all three first so the exclusive group never ends up with a stale selection.
+        menuBinding.viewListItem.isChecked = false
+        menuBinding.viewDualItem.isChecked = false
+        menuBinding.viewGridItem.isChecked = false
+        val checkedViewItem = if (isDualPane) {
+            menuBinding.viewDualItem
+        } else if (viewType == FileViewType.LIST) {
+            menuBinding.viewListItem
+        } else {
+            menuBinding.viewGridItem
         }
-        checkedViewTypeItem.isChecked = true
-        val sortOptions = viewModel.sortOptions
+        checkedViewItem.isChecked = true
+        menuBinding.viewDualItem.isVisible = viewModel.pickOptions == null
+        val sortOptions = activeViewModel.sortOptions
         val checkedSortByItem = when (sortOptions.by) {
             By.NAME -> menuBinding.sortByNameItem
             By.TYPE -> menuBinding.sortByTypeItem
@@ -690,12 +951,18 @@ class FileListFragment : Fragment(), BreadcrumbLayout.Listener, FileListAdapter.
         checkedSortByItem.isChecked = true
         menuBinding.sortOrderAscendingItem.isChecked = sortOptions.order == Order.ASCENDING
         menuBinding.sortDirectoriesFirstItem.isChecked = sortOptions.isDirectoriesFirst
-        menuBinding.viewSortPathSpecificItem.isChecked = viewModel.isViewSortPathSpecific
+        menuBinding.viewSortPathSpecificItem.isChecked = activeViewModel.isViewSortPathSpecific
     }
 
     private fun navigateUp() {
         collapseSearchView()
-        viewModel.navigateUp()
+        activeViewModel.navigateUp()
+    }
+
+    // The back gesture navigates the active pane up in dual-pane mode, or this fragment's own view
+    // model in single-pane mode; it is only enabled while there is somewhere to go up to.
+    private fun updateNavigateUpBackCallbackEnabled() {
+        navigateUpBackCallback?.isEnabled = activeViewModel.canNavigateUpBreadcrumb
     }
 
     private fun showNavigateToPathDialog() {
@@ -707,7 +974,7 @@ class FileListFragment : Fragment(), BreadcrumbLayout.Listener, FileListAdapter.
     }
 
     private fun refresh() {
-        viewModel.reload()
+        activeViewModel.reload()
     }
 
     private fun setShowHiddenFiles(showHiddenFiles: Boolean) {
@@ -754,6 +1021,10 @@ class FileListFragment : Fragment(), BreadcrumbLayout.Listener, FileListAdapter.
 
     override fun navigateTo(path: Path) {
         collapseSearchView()
+        if (isDualPane) {
+            activePane?.navigateToPath(path)
+            return
+        }
         val state = layoutManager.onSaveInstanceState()
         viewModel.navigateTo(state!!, path)
     }
@@ -793,7 +1064,8 @@ class FileListFragment : Fragment(), BreadcrumbLayout.Listener, FileListAdapter.
             return
         }
         val pickOptions = viewModel.pickOptions
-        menuBinding.selectAllItem.isVisible = pickOptions == null || pickOptions.allowMultiple
+        menuBinding.selectAllItem.isVisible =
+            !isDualPane && (pickOptions == null || pickOptions.allowMultiple)
     }
 
     private fun pickFiles(files: FileItemSet) {
@@ -1017,7 +1289,7 @@ class FileListFragment : Fragment(), BreadcrumbLayout.Listener, FileListAdapter.
     }
 
     private fun updateBottomToolbar() {
-        val pickOptions = viewModel.pickOptions
+        val pickOptions = activeViewModel.pickOptions
         if (pickOptions != null) {
             bottomActionMode.setMenuResource(R.menu.file_list_pick_bottom)
             val menu = bottomActionMode.menu
@@ -1042,7 +1314,7 @@ class FileListFragment : Fragment(), BreadcrumbLayout.Listener, FileListAdapter.
                     createMenuItem.isVisible = true
                 }
                 PickOptions.Mode.OPEN_DIRECTORY -> {
-                    val path = viewModel.currentPath
+                    val path = activeViewModel.currentPath
                     val navigationRoot = NavigationRootMapLiveData.valueCompat[path]
                     val name = navigationRoot?.getName(requireContext()) ?: path.name
                     bottomActionMode.title =
@@ -1059,7 +1331,7 @@ class FileListFragment : Fragment(), BreadcrumbLayout.Listener, FileListAdapter.
                 }
             }
         } else {
-            val pasteState = viewModel.pasteState
+            val pasteState = activeViewModel.pasteState
             val files = pasteState.files
             if (files.isEmpty()) {
                 if (bottomActionMode.isActive) {
@@ -1081,7 +1353,7 @@ class FileListFragment : Fragment(), BreadcrumbLayout.Listener, FileListAdapter.
             )
             binding.bottomCreateFileNameEdit.isVisible = false
             bottomActionMode.setMenuResource(R.menu.file_list_paste)
-            val isCurrentPathReadOnly = viewModel.currentPath.fileSystem.isReadOnly
+            val isCurrentPathReadOnly = activeViewModel.currentPath.fileSystem.isReadOnly
             bottomActionMode.menu.findItem(R.id.action_paste)
                 .setTitle(
                     if (areAllFilesArchivePaths) R.string.file_list_paste_action_extract_here else R.string.paste
@@ -1148,13 +1420,13 @@ class FileListFragment : Fragment(), BreadcrumbLayout.Listener, FileListAdapter.
     private fun onBottomActionModeFinished() {
         val pickOptions = viewModel.pickOptions
         if (pickOptions == null) {
-            viewModel.clearPasteState()
+            activeViewModel.clearPasteState()
         }
     }
 
     private fun pasteFiles(targetDirectory: Path) {
-        val pasteState = viewModel.pasteState
-        if (viewModel.pasteState.copy) {
+        val pasteState = activeViewModel.pasteState
+        if (pasteState.copy) {
             FileJobService.copy(
                 makePathListForJob(pasteState.files), targetDirectory, requireContext()
             )
@@ -1163,7 +1435,7 @@ class FileListFragment : Fragment(), BreadcrumbLayout.Listener, FileListAdapter.
                 makePathListForJob(pasteState.files), targetDirectory, requireContext()
             )
         }
-        viewModel.clearPasteState()
+        activeViewModel.clearPasteState()
     }
 
     private fun makePathListForJob(files: FileItemSet): List<Path> =
@@ -1319,7 +1591,7 @@ class FileListFragment : Fragment(), BreadcrumbLayout.Listener, FileListAdapter.
     override fun hasFileWithName(name: String): Boolean = getFileWithName(name) != null
 
     private fun getFileWithName(name: String): FileItem? {
-        val fileListData = viewModel.fileListStateful
+        val fileListData = activeViewModel.fileListStateful
         if (fileListData !is Success) {
             return null
         }
@@ -1431,11 +1703,11 @@ class FileListFragment : Fragment(), BreadcrumbLayout.Listener, FileListAdapter.
     }
 
     override val currentPath: Path
-        get() = viewModel.currentPath
+        get() = activeViewModel.currentPath
 
     override fun navigateToRoot(path: Path) {
         collapseSearchView()
-        viewModel.resetTo(path)
+        activeViewModel.resetTo(path)
     }
 
     override fun navigateToDefaultRoot() {
@@ -1651,6 +1923,7 @@ class FileListFragment : Fragment(), BreadcrumbLayout.Listener, FileListAdapter.
         val overlayToolbar: Toolbar,
         val breadcrumbLayout: BreadcrumbLayout,
         val contentLayout: ViewGroup,
+        val dualPaneContainer: LinearLayout?,
         val progress: ProgressBar,
         val errorText: TextView,
         val emptyView: View,
@@ -1679,6 +1952,7 @@ class FileListFragment : Fragment(), BreadcrumbLayout.Listener, FileListAdapter.
                     includeBinding.persistentBarLayout, appBarBinding.appBarLayout,
                     appBarBinding.toolbar, appBarBinding.overlayToolbar,
                     appBarBinding.breadcrumbLayout, contentBinding.contentLayout,
+                    includeBinding.dualPaneContainer,
                     contentBinding.progress, contentBinding.errorText, contentBinding.emptyView,
                     contentBinding.swipeRefreshLayout, contentBinding.recyclerView,
                     bottomBarBinding.bottomBarLayout, bottomBarBinding.bottomToolbar,
@@ -1693,6 +1967,7 @@ class FileListFragment : Fragment(), BreadcrumbLayout.Listener, FileListAdapter.
         val searchItem: MenuItem,
         val viewSortItem: MenuItem,
         val viewListItem: MenuItem,
+        val viewDualItem: MenuItem,
         val viewGridItem: MenuItem,
         val sortByNameItem: MenuItem,
         val sortByTypeItem: MenuItem,
@@ -1709,7 +1984,8 @@ class FileListFragment : Fragment(), BreadcrumbLayout.Listener, FileListAdapter.
                 inflater.inflate(R.menu.file_list, menu)
                 return MenuBinding(
                     menu, menu.findItem(R.id.action_search), menu.findItem(R.id.action_view_sort),
-                    menu.findItem(R.id.action_view_list), menu.findItem(R.id.action_view_grid),
+                    menu.findItem(R.id.action_view_list), menu.findItem(R.id.action_view_dual),
+                    menu.findItem(R.id.action_view_grid),
                     menu.findItem(R.id.action_sort_by_name),
                     menu.findItem(R.id.action_sort_by_type),
                     menu.findItem(R.id.action_sort_by_size),

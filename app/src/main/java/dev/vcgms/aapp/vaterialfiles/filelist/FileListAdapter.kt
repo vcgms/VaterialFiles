@@ -3,13 +3,17 @@ package dev.vcgms.aapp.vaterialfiles.filelist
 import android.os.Handler
 import android.os.Looper
 import android.text.TextUtils
+import android.util.TypedValue
+import android.view.Menu
 import android.view.View
 import android.view.ViewGroup
 import android.widget.ImageButton
 import android.widget.ImageView
+import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.appcompat.widget.PopupMenu
 import androidx.core.view.isVisible
+import androidx.fragment.app.Fragment
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.RecyclerView
 import coil.dispose
@@ -46,6 +50,35 @@ class FileListAdapter(
     private val listener: Listener
 ) : AnimatedListAdapter<FileItem, FileListAdapter.ViewHolder>(CALLBACK), PopupTextProvider {
     private var isSearching = false
+
+    // The fragment hosting this adapter, used to show the item actions dialog.
+    var hostFragment: Fragment? = null
+
+    // When set (single-pane list mode), a long press on an item is reported to this callback so
+    // that the fragment can start a drag instead of showing the item menu.
+    var itemDragListener: ((View, FileItem) -> Unit)? = null
+
+    // Whether the per-item three-dot menu button is shown; when hidden, a long press on the item
+    // shows its menu in a centered dialog instead.
+    var isMenuButtonVisible: Boolean = true
+
+    // Denser styling (slightly smaller text and narrower side margins) used by dual-pane columns.
+    var isDenseStyle: Boolean = false
+
+    // When set (dual-pane mode), the item menu gains "move/copy to the other pane" options; the
+    // callback receives the file and whether to copy (true) or move (false).
+    var moveToOtherPaneListener: ((FileItem, Boolean) -> Unit)? = null
+
+    var moveToOtherPaneTitle: String? = null
+
+    var copyToOtherPaneTitle: String? = null
+
+    var moveToOtherPaneIconRes: Int = 0
+
+    var copyToOtherPaneIconRes: Int = 0
+
+    // The file whose actions dialog is currently shown, so that its result can be dispatched.
+    private var pendingActionsFile: FileItem? = null
 
     private lateinit var _viewType: FileViewType
     var viewType: FileViewType
@@ -202,10 +235,54 @@ class FileListAdapter(
                     )
                 }
             }
+            if (isDenseStyle) {
+                applyDenseStyle(holder, viewType)
+            }
             popupMenu = PopupMenu(menuButton.context, menuButton)
-                .apply { inflate(R.menu.file_item) }
+                .apply {
+                    setForceShowIcon(true)
+                    inflate(R.menu.file_item)
+                    if (moveToOtherPaneListener != null) {
+                        menu.add(
+                            Menu.NONE, R.id.action_move_to_other_pane, Menu.NONE,
+                            moveToOtherPaneTitle
+                        ).setIcon(moveToOtherPaneIconRes)
+                        menu.add(
+                            Menu.NONE, R.id.action_copy_to_other_pane, Menu.NONE,
+                            copyToOtherPaneTitle
+                        ).setIcon(copyToOtherPaneIconRes)
+                    }
+                }
             menuButton.setOnClickListener { popupMenu.show() }
         }
+    }
+
+    private fun applyDenseStyle(holder: ViewHolder, viewType: FileViewType) {
+        val density = holder.itemView.resources.displayMetrics.density
+        when (viewType) {
+            FileViewType.LIST -> {
+                (holder.iconLayout.layoutParams as? LinearLayout.LayoutParams)?.apply {
+                    marginStart = (DENSE_LIST_ICON_MARGIN_START_DP * density).toInt()
+                }
+            }
+            FileViewType.GRID -> {
+                holder.thumbnailContainer?.let { container ->
+                    (container.layoutParams as? LinearLayout.LayoutParams)?.apply {
+                        marginStart = (DENSE_GRID_MARGIN_DP * density).toInt()
+                        marginEnd = (DENSE_GRID_MARGIN_DP * density).toInt()
+                        topMargin = (DENSE_GRID_MARGIN_DP * density).toInt()
+                    }
+                }
+            }
+        }
+    }
+
+    // Dual-pane columns are narrow, so pin the item text to fixed sizes that are slightly smaller
+    // than the single-pane appearances instead of scaling a base size (whose resolved value proved
+    // unreliable in the pane context and produced oversized text).
+    private fun applyDenseTextSize(holder: ViewHolder) {
+        holder.nameText.setTextSize(TypedValue.COMPLEX_UNIT_SP, DENSE_NAME_TEXT_SP)
+        holder.descriptionText?.setTextSize(TypedValue.COMPLEX_UNIT_SP, DENSE_DESCRIPTION_TEXT_SP)
     }
 
     private val directoryItemCountCache = ConcurrentHashMap<Path, Int>()
@@ -265,12 +342,20 @@ class FileListAdapter(
         val isEnabled = isFileSelectable(file) || isDirectory
         holder.itemLayout.isEnabled = isEnabled
         holder.menuButton.isEnabled = isEnabled
+        holder.menuButton.isVisible = isMenuButtonVisible && viewType == FileViewType.LIST
+        if (isDenseStyle) {
+            applyDenseTextSize(holder)
+        }
         val menu = holder.popupMenu.menu
         val path = file.path
         val hasPickOptions = pickOptions != null
         val isReadOnly = path.fileSystem.isReadOnly
         menu.findItem(R.id.action_cut).isVisible = !hasPickOptions && !isReadOnly
         menu.findItem(R.id.action_copy).isVisible = !hasPickOptions
+        if (moveToOtherPaneListener != null) {
+            menu.findItem(R.id.action_move_to_other_pane).isVisible = !hasPickOptions && !isReadOnly
+            menu.findItem(R.id.action_copy_to_other_pane).isVisible = !hasPickOptions
+        }
         val checked = file in selectedFiles
         holder.itemLayout.isChecked = checked
         holder.nameText.apply {
@@ -293,7 +378,12 @@ class FileListAdapter(
                 }
             }
             setOnLongClickListener {
-                if (selectedFiles.isEmpty()) {
+                val dragListener = itemDragListener
+                if (dragListener != null && viewType == FileViewType.LIST && pickOptions == null) {
+                    dragListener(this, file)
+                } else if (viewType == FileViewType.GRID || !isMenuButtonVisible) {
+                    showItemActionsDialog(file, menu)
+                } else if (selectedFiles.isEmpty()) {
                     selectFile(file)
                 } else {
                     listener.openFile(file)
@@ -389,59 +479,170 @@ class FileListAdapter(
         menu.findItem(R.id.action_extract).isVisible = file.isArchiveFile
         menu.findItem(R.id.action_archive).isVisible = !isArchivePath
         menu.findItem(R.id.action_add_bookmark).isVisible = isDirectory
-        holder.popupMenu.setOnMenuItemClickListener {
-            when (it.itemId) {
-                R.id.action_open_with -> {
-                    listener.openFileWith(file)
-                    true
-                }
-                R.id.action_cut -> {
-                    listener.cutFile(file)
-                    true
-                }
-                R.id.action_copy -> {
-                    listener.copyFile(file)
-                    true
-                }
-                R.id.action_delete -> {
-                    listener.confirmDeleteFile(file)
-                    true
-                }
-                R.id.action_rename -> {
-                    listener.showRenameFileDialog(file)
-                    true
-                }
-                R.id.action_extract -> {
-                    listener.extractFile(file)
-                    true
-                }
-                R.id.action_archive -> {
-                    listener.showCreateArchiveDialog(file)
-                    true
-                }
-                R.id.action_share -> {
-                    listener.shareFile(file)
-                    true
-                }
-                R.id.action_copy_path -> {
-                    listener.copyPath(file)
-                    true
-                }
-                R.id.action_add_bookmark -> {
-                    listener.addBookmark(file)
-                    true
-                }
-                R.id.action_create_shortcut -> {
-                    listener.createShortcut(file)
-                    true
-                }
-                R.id.action_properties -> {
-                    listener.showPropertiesDialog(file)
-                    true
-                }
-                else -> false
+        holder.popupMenu.setOnMenuItemClickListener { performMenuAction(file, it.itemId) }
+    }
+
+    // Dispatches a menu item of the per-item menu, shared by the menu button popup and the long
+    // press actions dialog.
+    private fun performMenuAction(file: FileItem, itemId: Int): Boolean {
+        return when (itemId) {
+            R.id.action_select -> {
+                listener.selectFile(file, true)
+                true
+            }
+            R.id.action_open_with -> {
+                listener.openFileWith(file)
+                true
+            }
+            R.id.action_cut -> {
+                listener.cutFile(file)
+                true
+            }
+            R.id.action_copy -> {
+                listener.copyFile(file)
+                true
+            }
+            R.id.action_delete -> {
+                listener.confirmDeleteFile(file)
+                true
+            }
+            R.id.action_rename -> {
+                listener.showRenameFileDialog(file)
+                true
+            }
+            R.id.action_extract -> {
+                listener.extractFile(file)
+                true
+            }
+            R.id.action_archive -> {
+                listener.showCreateArchiveDialog(file)
+                true
+            }
+            R.id.action_share -> {
+                listener.shareFile(file)
+                true
+            }
+            R.id.action_copy_path -> {
+                listener.copyPath(file)
+                true
+            }
+            R.id.action_add_bookmark -> {
+                listener.addBookmark(file)
+                true
+            }
+            R.id.action_create_shortcut -> {
+                listener.createShortcut(file)
+                true
+            }
+            R.id.action_properties -> {
+                listener.showPropertiesDialog(file)
+                true
+            }
+            R.id.action_move_to_other_pane -> {
+                moveToOtherPaneListener?.invoke(file, false)
+                true
+            }
+            R.id.action_copy_to_other_pane -> {
+                moveToOtherPaneListener?.invoke(file, true)
+                true
+            }
+            else -> false
+        }
+    }
+
+    fun onItemActionsDialogResult(actionId: Int) {
+        val file = pendingActionsFile ?: return
+        pendingActionsFile = null
+        performMenuAction(file, actionId)
+    }
+
+    private fun showItemActionsDialog(file: FileItem, menu: Menu) {
+        val fragment = hostFragment ?: return
+        pendingActionsFile = file
+        FileActionsDialogFragment.show(fragment, buildFileActions(menu))
+    }
+
+    private fun buildFileActions(menu: Menu): List<FileActionsDialogFragment.FileAction> {
+        val fragment = hostFragment
+        val actions = mutableListOf<FileActionsDialogFragment.FileAction>()
+        // Grid view has no per-item selection affordance, so offer entering selection mode here.
+        if (viewType == FileViewType.GRID && fragment != null) {
+            actions.add(
+                FileActionsDialogFragment.FileAction(
+                    R.id.action_select,
+                    fragment.getString(R.string.file_item_action_select),
+                    R.drawable.check_icon_control_normal_24dp
+                )
+            )
+        }
+        // Offer moving/copying to the other pane before the regular actions when available.
+        for (itemId in intArrayOf(
+            R.id.action_move_to_other_pane, R.id.action_copy_to_other_pane
+        )) {
+            val item = menu.findItem(itemId) ?: continue
+            if (item.isVisible) {
+                actions.add(
+                    FileActionsDialogFragment.FileAction(
+                        item.itemId, item.title.toString(), menuItemIconRes(item.itemId)
+                    )
+                )
             }
         }
+        for (index in 0 until menu.size()) {
+            val item = menu.getItem(index)
+            if (!item.isVisible || item.itemId == R.id.action_move_to_other_pane ||
+                item.itemId == R.id.action_copy_to_other_pane) {
+                continue
+            }
+            // Resolve the label from resources rather than the inflated menu title so the dialog
+            // always shows a non-empty label.
+            val titleRes = menuItemTitleRes(item.itemId)
+            val title = if (titleRes != 0 && fragment != null) {
+                fragment.getString(titleRes)
+            } else {
+                item.title.toString()
+            }
+            actions.add(
+                FileActionsDialogFragment.FileAction(
+                    item.itemId, title, menuItemIconRes(item.itemId)
+                )
+            )
+        }
+        return actions
+    }
+
+    private fun menuItemTitleRes(itemId: Int): Int = when (itemId) {
+        R.id.action_open_with -> R.string.file_item_action_open_with
+        R.id.action_cut -> R.string.cut
+        R.id.action_copy -> R.string.copy
+        R.id.action_delete -> R.string.delete
+        R.id.action_rename -> R.string.rename
+        R.id.action_extract -> R.string.file_item_action_extract
+        R.id.action_archive -> R.string.file_item_action_archive
+        R.id.action_share -> R.string.share
+        R.id.action_copy_path -> R.string.file_item_action_copy_path
+        R.id.action_add_bookmark -> R.string.file_item_action_add_bookmark
+        R.id.action_create_shortcut -> R.string.file_item_action_create_shortcut
+        R.id.action_properties -> R.string.file_item_action_properties
+        else -> 0
+    }
+
+    private fun menuItemIconRes(itemId: Int): Int = when (itemId) {
+        R.id.action_open_with -> R.drawable.open_with_icon_control_normal_24dp
+        R.id.action_cut -> R.drawable.cut_icon_control_normal_24dp
+        R.id.action_copy -> R.drawable.copy_icon_control_normal_24dp
+        R.id.action_delete -> R.drawable.delete_icon_control_normal_24dp
+        R.id.action_rename -> R.drawable.edit_icon_control_normal_24dp
+        R.id.action_extract -> R.drawable.extract_icon_control_normal_24dp
+        R.id.action_archive -> R.drawable.archive_icon_control_normal_24dp
+        R.id.action_share -> R.drawable.share_icon_control_normal_24dp
+        R.id.action_copy_path -> R.drawable.link_icon_control_normal_24dp
+        R.id.action_add_bookmark -> R.drawable.bookmark_add_icon_control_normal_24dp
+        R.id.action_create_shortcut -> R.drawable.shortcut_icon_control_normal_24dp
+        R.id.action_properties -> R.drawable.information_icon_control_normal_24dp
+        R.id.action_move_to_other_pane -> moveToOtherPaneIconRes
+        R.id.action_copy_to_other_pane -> copyToOtherPaneIconRes
+        else -> 0
     }
 
     override fun getPopupText(view: View, position: Int): CharSequence {
@@ -460,6 +661,11 @@ class FileListAdapter(
 
     companion object {
         private val PAYLOAD_STATE_CHANGED = Any()
+
+        private const val DENSE_NAME_TEXT_SP = 14f
+        private const val DENSE_DESCRIPTION_TEXT_SP = 12f
+        private const val DENSE_LIST_ICON_MARGIN_START_DP = 4f
+        private const val DENSE_GRID_MARGIN_DP = 8f
 
         private val CALLBACK = object : DiffUtil.ItemCallback<FileItem>() {
             override fun areItemsTheSame(oldItem: FileItem, newItem: FileItem): Boolean =
@@ -483,7 +689,8 @@ class FileListAdapter(
         val badgeImage: ImageView,
         val nameText: TextView,
         val descriptionText: TextView?,
-        val menuButton: ImageButton
+        val menuButton: ImageButton,
+        val thumbnailContainer: View?
     ) : RecyclerView.ViewHolder(root) {
         constructor(binding: FileItemListBinding) : this(
             binding.root,
@@ -498,7 +705,8 @@ class FileListAdapter(
             binding.badgeImage,
             binding.nameText,
             binding.descriptionText,
-            binding.menuButton
+            binding.menuButton,
+            null
         )
 
         constructor(binding: FileItemGridBinding) : this(
@@ -514,7 +722,8 @@ class FileListAdapter(
             binding.badgeImage,
             binding.nameText,
             null,
-            binding.menuButton
+            binding.menuButton,
+            binding.thumbnailContainer
         )
 
         lateinit var popupMenu: PopupMenu

@@ -53,6 +53,12 @@ object Settings {
             FileViewType::class.java
         )
 
+    val FILE_LIST_DUAL_PANE: SettingLiveData<Boolean> =
+        BooleanSettingLiveData(
+            R.string.pref_key_file_list_dual_pane,
+            R.bool.pref_default_value_file_list_dual_pane
+        )
+
     val FILE_LIST_GRID_COLUMNS: SettingLiveData<GridColumnCount> =
         EnumSettingLiveData(
             R.string.pref_key_file_list_grid_columns,
@@ -108,9 +114,9 @@ object Settings {
             ThemeColor::class.java
         )
 
-    val MATERIAL_DESIGN_3: SettingLiveData<Boolean> =
+    val MATERIAL_YOU: SettingLiveData<Boolean> =
         BooleanSettingLiveData(
-            R.string.pref_key_material_design_3, R.bool.pref_default_value_material_design_3
+            R.string.pref_key_material_you, R.bool.pref_default_value_material_you
         )
 
     val DISPLAY_SIZE: SettingLiveData<DisplaySize> =

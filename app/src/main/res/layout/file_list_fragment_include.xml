@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<merge xmlns:android="http://schemas.android.com/apk/res/android">
+<merge xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
 
     <androidx.drawerlayout.widget.DrawerLayout
         android:id="@+id/drawerLayout"
@@ -27,6 +28,32 @@
 
                     <include layout="@layout/file_list_fragment_content_include" />
 
+                    <LinearLayout
+                        android:id="@+id/dualPaneContainer"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:layout_gravity="top"
+                        android:orientation="horizontal"
+                        android:visibility="gone"
+                        app:layout_behavior="@string/appbar_scrolling_view_behavior">
+
+                        <androidx.fragment.app.FragmentContainerView
+                            android:id="@+id/leftPane"
+                            android:layout_width="0dp"
+                            android:layout_height="match_parent"
+                            android:layout_weight="1" />
+
+                        <View
+                            android:layout_width="1dp"
+                            android:layout_height="match_parent"
+                            android:background="?android:attr/listDivider" />
+
+                        <androidx.fragment.app.FragmentContainerView
+                            android:id="@+id/rightPane"
+                            android:layout_width="0dp"
+                            android:layout_height="match_parent"
+                            android:layout_weight="1" />
+                    </LinearLayout>
                 </androidx.coordinatorlayout.widget.CoordinatorLayout>
 
                 <include layout="@layout/file_list_fragment_bottom_bar_include" />

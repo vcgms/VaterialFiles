@@ -10,6 +10,7 @@
     android:orientation="vertical">
 
     <dev.vcgms.aapp.vaterialfiles.ui.AspectRatioFrameLayout
+        android:id="@+id/thumbnailContainer"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginStart="@dimen/screen_edge_margin"
@@ -68,7 +69,8 @@
             android:layout_height="@dimen/touch_target_size"
             android:layout_marginStart="@dimen/screen_edge_margin_minus_12dp"
             android:duplicateParentState="true"
-            android:padding="@dimen/touch_target_large_icon_padding">
+            android:padding="@dimen/touch_target_large_icon_padding"
+            android:visibility="gone">
 
             <dev.vcgms.aapp.vaterialfiles.ui.DisabledAlphaImageView
                 android:id="@+id/iconImage"

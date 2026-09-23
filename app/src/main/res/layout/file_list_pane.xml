@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="?colorSurface">
+
+    <androidx.swiperefreshlayout.widget.ThemedSwipeRefreshLayout
+        android:id="@+id/paneSwipeRefreshLayout"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent">
+
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/paneRecyclerView"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:clipToPadding="false"
+            android:paddingBottom="@dimen/list_bottom_padding_with_fab"
+            tools:listitem="@layout/file_item_list" />
+    </androidx.swiperefreshlayout.widget.ThemedSwipeRefreshLayout>
+
+    <ProgressBar
+        android:id="@+id/paneProgress"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:visibility="gone" />
+
+    <TextView
+        android:id="@+id/paneErrorText"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:paddingTop="12dp"
+        android:paddingBottom="32dp"
+        android:drawablePadding="8dp"
+        android:gravity="center_horizontal"
+        android:textAppearance="?textAppearanceListItem"
+        android:visibility="gone"
+        app:drawableTopCompat="@drawable/error_icon_240dp" />
+
+    <TextView
+        android:id="@+id/paneEmptyView"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:paddingTop="12dp"
+        android:paddingBottom="32dp"
+        android:drawablePadding="8dp"
+        android:gravity="center_horizontal"
+        android:text="@string/file_list_empty"
+        android:textAppearance="?textAppearanceListItem"
+        android:visibility="gone"
+        app:drawableTopCompat="@drawable/file_icon_240dp" />
+
+    <View
+        android:id="@+id/paneActiveIndicator"
+        android:layout_width="match_parent"
+        android:layout_height="2dp"
+        android:background="?colorControlActivated"
+        android:visibility="gone" />
+</FrameLayout>

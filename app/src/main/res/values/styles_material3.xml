@@ -5,14 +5,13 @@
 
     <style name="Preference.MaterialFiles.Material3.SimpleMenuPreference" parent="Preference.SimpleMenuPreference">
         <item name="android:popupMenuStyle">@style/Widget.MaterialFiles.Material3.Preference.SimpleMenuPreference.PopupMenu</item>
+        <item name="android:layout">@layout/preference_simple_menu_material3</item>
     </style>
     <style name="Widget.MaterialFiles.Material3.Preference.SimpleMenuPreference.PopupMenu" parent="Widget.Preference.SimpleMenuPreference.PopupMenu">
         <item name="android:popupBackground">@drawable/m3_popupmenu_background_overlay</item>
     </style>
 
-    <style name="Preference.MaterialFiles.Material3.SwitchPreferenceCompat" parent="Preference.SwitchPreferenceCompat.Material">
-        <item name="android:widgetLayout">@layout/switch_preference_compat_widget_material3</item>
-    </style>
+    <style name="Preference.MaterialFiles.Material3.SwitchPreferenceCompat" parent="Preference.SwitchPreferenceCompat.Material" />
 
     <style name="ShapeAppearance.MaterialFiles.Material3.SmallComponent" parent="ShapeAppearance.Material3.SmallComponent">
         <item name="cornerSize">8dp</item>
@@ -50,6 +49,13 @@
     </style>
 
     <style name="Widget.MaterialFiles.Material3.Toolbar" parent="Widget.Material3.Toolbar">
-        <item name="contentInsetStartWithNavigation">@dimen/abc_action_bar_content_inset_with_nav</item>
+        <item name="contentInsetStartWithNavigation">56dp</item>
+        <item name="titleTextAppearance">@style/TextAppearance.MaterialFiles.Material3.ToolbarTitle</item>
+        <item name="titleMarginStart">4dp</item>
+        <item name="titleMarginEnd">4dp</item>
+    </style>
+
+    <style name="TextAppearance.MaterialFiles.Material3.ToolbarTitle" parent="TextAppearance.Material3.TitleLarge">
+        <item name="android:textSize">18sp</item>
     </style>
 </resources>

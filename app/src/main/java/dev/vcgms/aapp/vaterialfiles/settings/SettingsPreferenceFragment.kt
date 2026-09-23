@@ -6,7 +6,6 @@ import dev.vcgms.aapp.vaterialfiles.R
 import dev.vcgms.aapp.vaterialfiles.security.SecurityManager
 import dev.vcgms.aapp.vaterialfiles.security.SetPinDialogFragment
 import dev.vcgms.aapp.vaterialfiles.theme.custom.CustomThemeHelper
-import dev.vcgms.aapp.vaterialfiles.theme.custom.ThemeColor
 import dev.vcgms.aapp.vaterialfiles.theme.display.DisplaySizeHelper
 import dev.vcgms.aapp.vaterialfiles.theme.night.NightMode
 import dev.vcgms.aapp.vaterialfiles.theme.night.NightModeHelper
@@ -42,19 +41,14 @@ class SettingsPreferenceFragment : PreferenceFragmentCompat() {
         //Settings.MATERIAL_DESIGN_3.observe(viewLifecycleOwner) { CustomThemeHelper.sync() }
         //Settings.NIGHT_MODE.observe(viewLifecycleOwner) { NightModeHelper.sync() }
         //Settings.BLACK_NIGHT_MODE.observe(viewLifecycleOwner) { CustomThemeHelper.sync() }
-        Settings.THEME_COLOR.observe(viewLifecycleOwner, this::onThemeColorChanged)
-        Settings.MATERIAL_DESIGN_3.observe(viewLifecycleOwner, this::onMaterialDesign3Changed)
+        Settings.MATERIAL_YOU.observe(viewLifecycleOwner, this::onMaterialYouChanged)
         Settings.DISPLAY_SIZE.observe(viewLifecycleOwner, this::onDisplaySizeChanged)
         Settings.NIGHT_MODE.observe(viewLifecycleOwner, this::onNightModeChanged)
         Settings.BLACK_NIGHT_MODE.observe(viewLifecycleOwner, this::onBlackNightModeChanged)
         Settings.AUTH_MODE.observe(viewLifecycleOwner, this::onAuthModeChanged)
     }
 
-    private fun onThemeColorChanged(themeColor: ThemeColor) {
-        CustomThemeHelper.sync()
-    }
-
-    private fun onMaterialDesign3Changed(isMaterialDesign3: Boolean) {
+    private fun onMaterialYouChanged(materialYou: Boolean) {
         CustomThemeHelper.sync()
     }
 
