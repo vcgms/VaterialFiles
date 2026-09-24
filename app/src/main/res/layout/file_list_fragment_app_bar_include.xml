@@ -21,7 +21,7 @@
             <dev.vcgms.aapp.vaterialfiles.ui.CrossfadeSubtitleToolbar
                 android:id="@+id/toolbar"
                 android:layout_width="match_parent"
-                android:layout_height="?actionBarSize"
+                android:layout_height="@dimen/file_list_toolbar_height"
                 android:paddingStart="@dimen/file_list_toolbar_padding_start"
                 android:paddingEnd="@dimen/file_list_toolbar_padding_end_with_overflow"
                 app:navigationIcon="@drawable/menu_icon_control_normal_24dp"
@@ -32,7 +32,7 @@
             <dev.vcgms.aapp.vaterialfiles.ui.OverlayToolbar
                 android:id="@+id/overlayToolbar"
                 android:layout_width="match_parent"
-                android:layout_height="?actionBarSize"
+                android:layout_height="@dimen/file_list_toolbar_height"
                 android:paddingStart="@dimen/file_list_toolbar_padding_start"
                 android:paddingEnd="@dimen/file_list_toolbar_padding_end_with_overflow"
                 android:background="?colorAppBarSurface"

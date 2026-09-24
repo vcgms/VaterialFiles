@@ -34,7 +34,10 @@
         <item name="toolbarStyle">@style/Widget.MaterialFiles.Material3.Toolbar</item>
         <item name="minTouchTargetSize">0dp</item>
 
-        <item name="colorAppBarSurface">?colorSurface</item>
+        <!-- Keep the app bar tinted with the Material 3 theme color at all times, not only when
+             the list is scrolled (lifted). -->
+        <item name="colorAppBarSurface">?colorSurfaceContainer</item>
+        <item name="preferenceTheme">@style/ThemeOverlay.MaterialFiles.Preference.Material3</item>
     </style>
     <style name="Theme.MaterialFiles.Material3" parent="Base.Theme.MaterialFiles.Material3" />
 

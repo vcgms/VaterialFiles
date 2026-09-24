@@ -210,6 +210,15 @@ class FileListFragment : Fragment(), BreadcrumbLayout.Listener, FileListAdapter.
     private val activeViewModel: FileListViewModel
         get() = if (isDualPane) activePane?.viewModelOrNull ?: viewModel else viewModel
 
+    // Selection is per-column in dual-pane mode; the overlay action bar always reflects the
+    // active column's selection.
+    private val activeSelectedFiles: FileItemSet
+        get() = if (isDualPane) {
+            activePane?.viewModelOrNull?.selectedFiles ?: fileItemSetOf()
+        } else {
+            viewModel.selectedFiles
+        }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -266,6 +275,7 @@ class FileListFragment : Fragment(), BreadcrumbLayout.Listener, FileListAdapter.
             itemDragListener = { itemView, file -> startSinglePaneDrag(itemView, file) }
         }
         binding.recyclerView.adapter = adapter
+        adapter.installIconMultiSelectGesture(binding.recyclerView)
         binding.recyclerView.setOnDragListener { _, event -> handleSinglePaneDragEvent(event) }
         val fastScroller = ThemedFastScroller.create(binding.recyclerView)
         binding.recyclerView.setOnApplyWindowInsetsListener(
@@ -711,6 +721,7 @@ class FileListFragment : Fragment(), BreadcrumbLayout.Listener, FileListAdapter.
         updateSelectAllMenuItem()
         updateBottomToolbar()
         updateNavigateUpBackCallbackEnabled()
+        updateOverlayToolbar()
     }
 
     private fun updateTopBreadcrumbForActivePane() {
@@ -765,6 +776,17 @@ class FileListFragment : Fragment(), BreadcrumbLayout.Listener, FileListAdapter.
                 updateToolbarSubtitle()
             }
         }
+        // Each column keeps its own selection; sync the overlay action bar with the active column.
+        leftPane.selectionListener = { _ ->
+            if (isDualPane && activePane === leftPane) {
+                updateOverlayToolbar()
+            }
+        }
+        rightPane.selectionListener = { _ ->
+            if (isDualPane && activePane === rightPane) {
+                updateOverlayToolbar()
+            }
+        }
         activePane = when (DualPaneController.activePaneId) {
             DualPaneController.PANE_RIGHT -> rightPane
             else -> leftPane
@@ -784,6 +806,7 @@ class FileListFragment : Fragment(), BreadcrumbLayout.Listener, FileListAdapter.
                 pane.breadcrumbDataOrNull?.let { it.paths.getOrNull(it.selectedIndex) }
             )
             updateToolbarSubtitle()
+            updateOverlayToolbar()
         }
     }
 
@@ -1065,7 +1088,7 @@ class FileListFragment : Fragment(), BreadcrumbLayout.Listener, FileListAdapter.
         }
         val pickOptions = viewModel.pickOptions
         menuBinding.selectAllItem.isVisible =
-            !isDualPane && (pickOptions == null || pickOptions.allowMultiple)
+            pickOptions == null || pickOptions.allowMultiple
     }
 
     private fun pickFiles(files: FileItemSet) {
@@ -1108,7 +1131,7 @@ class FileListFragment : Fragment(), BreadcrumbLayout.Listener, FileListAdapter.
     }
 
     private fun updateOverlayToolbar() {
-        val files = viewModel.selectedFiles
+        val files = activeSelectedFiles
         if (files.isEmpty()) {
             if (overlayActionMode.isActive) {
                 overlayActionMode.finish()
@@ -1152,7 +1175,7 @@ class FileListFragment : Fragment(), BreadcrumbLayout.Listener, FileListAdapter.
             menu.findItem(R.id.action_delete).isVisible = !isAnyFileReadOnly
             val areAllFilesArchiveFiles = files.all { it.isArchiveFile }
             menu.findItem(R.id.action_extract).isVisible = areAllFilesArchiveFiles
-            val isCurrentPathReadOnly = viewModel.currentPath.fileSystem.isReadOnly
+            val isCurrentPathReadOnly = activeViewModel.currentPath.fileSystem.isReadOnly
             menu.findItem(R.id.action_archive).isVisible = !isCurrentPathReadOnly
         }
         if (!overlayActionMode.isActive) {
@@ -1176,35 +1199,35 @@ class FileListFragment : Fragment(), BreadcrumbLayout.Listener, FileListAdapter.
     private fun onOverlayActionModeMenuItemClicked(item: MenuItem): Boolean =
         when (item.itemId) {
             R.id.action_open -> {
-                pickFiles(viewModel.selectedFiles)
+                pickFiles(activeSelectedFiles)
                 true
             }
             R.id.action_create -> {
-                confirmReplaceFile(viewModel.selectedFiles.single())
+                confirmReplaceFile(activeSelectedFiles.single())
                 true
             }
             R.id.action_cut -> {
-                cutFiles(viewModel.selectedFiles)
+                cutFiles(activeSelectedFiles)
                 true
             }
             R.id.action_copy -> {
-                copyFiles(viewModel.selectedFiles)
+                copyFiles(activeSelectedFiles)
                 true
             }
             R.id.action_delete -> {
-                confirmDeleteFiles(viewModel.selectedFiles)
+                confirmDeleteFiles(activeSelectedFiles)
                 true
             }
             R.id.action_extract -> {
-                extractFiles(viewModel.selectedFiles)
+                extractFiles(activeSelectedFiles)
                 true
             }
             R.id.action_archive -> {
-                showCreateArchiveDialog(viewModel.selectedFiles)
+                showCreateArchiveDialog(activeSelectedFiles)
                 true
             }
             R.id.action_share -> {
-                shareFiles(viewModel.selectedFiles)
+                shareFiles(activeSelectedFiles)
                 true
             }
             R.id.action_select_all -> {
@@ -1215,7 +1238,7 @@ class FileListFragment : Fragment(), BreadcrumbLayout.Listener, FileListAdapter.
         }
 
     private fun onOverlayActionModeFinished() {
-        viewModel.clearSelectedFiles()
+        activeViewModel.clearSelectedFiles()
     }
 
     private fun confirmReplaceFile(file: FileItem, setFileName: Boolean = true) {
@@ -1234,13 +1257,13 @@ class FileListFragment : Fragment(), BreadcrumbLayout.Listener, FileListAdapter.
     }
 
     private fun cutFiles(files: FileItemSet) {
-        viewModel.addToPasteState(false, files)
-        viewModel.selectFiles(files, false)
+        activeViewModel.addToPasteState(false, files)
+        activeViewModel.selectFiles(files, false)
     }
 
     private fun copyFiles(files: FileItemSet) {
-        viewModel.addToPasteState(true, files)
-        viewModel.selectFiles(files, false)
+        activeViewModel.addToPasteState(true, files)
+        activeViewModel.selectFiles(files, false)
     }
 
     private fun confirmDeleteFiles(files: FileItemSet) {
@@ -1249,12 +1272,12 @@ class FileListFragment : Fragment(), BreadcrumbLayout.Listener, FileListAdapter.
 
     override fun deleteFiles(files: FileItemSet) {
         FileJobService.delete(makePathListForJob(files), requireContext())
-        viewModel.selectFiles(files, false)
+        activeViewModel.selectFiles(files, false)
     }
 
     private fun extractFiles(files: FileItemSet) {
         copyFiles(files.mapTo(fileItemSetOf()) { it.createDummyArchiveRoot() })
-        viewModel.selectFiles(files, false)
+        activeViewModel.selectFiles(files, false)
     }
 
     private fun showCreateArchiveDialog(files: FileItemSet) {
@@ -1268,20 +1291,24 @@ class FileListFragment : Fragment(), BreadcrumbLayout.Listener, FileListAdapter.
         filter: Int,
         password: String?
     ) {
-        val archiveFile = viewModel.currentPath.resolve(name)
+        val archiveFile = activeViewModel.currentPath.resolve(name)
         FileJobService.archive(
             makePathListForJob(files), archiveFile, format, filter, password, requireContext()
         )
-        viewModel.selectFiles(files, false)
+        activeViewModel.selectFiles(files, false)
     }
 
     private fun shareFiles(files: FileItemSet) {
         shareFiles(files.map { it.path }, files.map { it.mimeType })
-        viewModel.selectFiles(files, false)
+        activeViewModel.selectFiles(files, false)
     }
 
     private fun selectAllFiles() {
-        adapter.selectAllFiles()
+        if (isDualPane) {
+            activePane?.selectAllFiles()
+        } else {
+            adapter.selectAllFiles()
+        }
     }
 
     private fun onPasteStateChanged(pasteState: PasteState) {

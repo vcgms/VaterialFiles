@@ -21,7 +21,7 @@
             <androidx.appcompat.widget.Toolbar
                 android:id="@+id/toolbar"
                 android:layout_width="match_parent"
-                android:layout_height="?actionBarSize"
+                android:layout_height="@dimen/file_list_toolbar_height"
                 app:popupTheme="?actionBarPopupTheme" />
 
             <com.google.android.material.progressindicator.LinearProgressIndicator

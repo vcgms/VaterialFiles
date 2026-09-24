@@ -86,6 +86,9 @@ class FileListPaneFragment : Fragment(), FileListAdapter.Listener,
     // Called when this pane's file list changes so the host can refresh the toolbar subtitle.
     var subtitleListener: (() -> Unit)? = null
 
+    // Called when this pane's selection changes so the host can sync the overlay action bar.
+    var selectionListener: ((FileItemSet) -> Unit)? = null
+
     private lateinit var binding: FileListPaneBinding
 
     private lateinit var layoutManager: GridLayoutManager
@@ -117,6 +120,12 @@ class FileListPaneFragment : Fragment(), FileListAdapter.Listener,
 
     fun reload() {
         viewModel.reload()
+    }
+
+    fun selectAllFiles() {
+        if (::adapter.isInitialized) {
+            adapter.selectAllFiles()
+        }
     }
 
     fun addToPasteState(copy: Boolean, file: FileItem) {
@@ -181,6 +190,7 @@ class FileListPaneFragment : Fragment(), FileListAdapter.Listener,
             copyToOtherPaneIconRes = R.drawable.copy_icon_control_normal_24dp
         }
         binding.paneRecyclerView.adapter = adapter
+        adapter.installIconMultiSelectGesture(binding.paneRecyclerView)
         binding.root.setOnClickListener { activeChangedListener?.invoke(this) }
         // Any touch or scroll inside this pane makes it the active one, so the top bar breadcrumb
         // and back navigation always follow the pane the user is interacting with.
@@ -216,7 +226,10 @@ class FileListPaneFragment : Fragment(), FileListAdapter.Listener,
         viewModel.viewTypeLiveData.observe(viewLifecycleOwner) { onViewTypeChanged(it) }
         Settings.FILE_LIST_DUAL_PANE.observe(viewLifecycleOwner) { onDualPaneChanged(it) }
         viewModel.sortOptionsLiveData.observe(viewLifecycleOwner) { adapter.sortOptions = it }
-        viewModel.selectedFilesLiveData.observe(viewLifecycleOwner) { adapter.replaceSelectedFiles(it) }
+        viewModel.selectedFilesLiveData.observe(viewLifecycleOwner) {
+            adapter.replaceSelectedFiles(it)
+            selectionListener?.invoke(it)
+        }
         viewModel.fileListLiveData.observe(viewLifecycleOwner) { onFileListChanged(it) }
         Settings.FILE_LIST_SHOW_HIDDEN_FILES.observe(viewLifecycleOwner) { updateAdapterFileList() }
         Settings.FILE_NAME_ELLIPSIZE.observe(viewLifecycleOwner) { adapter.nameEllipsize = it }

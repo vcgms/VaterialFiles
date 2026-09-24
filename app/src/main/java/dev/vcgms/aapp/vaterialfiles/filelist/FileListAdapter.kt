@@ -5,6 +5,7 @@ import android.os.Looper
 import android.text.TextUtils
 import android.util.TypedValue
 import android.view.Menu
+import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.widget.ImageButton
@@ -154,6 +155,13 @@ class FileListAdapter(
         listener.selectFile(file, !selected)
     }
 
+    // Selects the file only if it is not selected yet, keeping single-choice pick handling.
+    private fun selectFileIfUnselected(file: FileItem) {
+        if (file !in selectedFiles) {
+            selectFile(file)
+        }
+    }
+
     fun selectAllFiles() {
         val files = fileItemSetOf()
         for (index in 0..<itemCount) {
@@ -277,9 +285,7 @@ class FileListAdapter(
         }
     }
 
-    // Dual-pane columns are narrow, so pin the item text to fixed sizes that are slightly smaller
-    // than the single-pane appearances instead of scaling a base size (whose resolved value proved
-    // unreliable in the pane context and produced oversized text).
+    // Pins item text to fixed sizes shared by single-pane and dual-pane columns.
     private fun applyDenseTextSize(holder: ViewHolder) {
         holder.nameText.setTextSize(TypedValue.COMPLEX_UNIT_SP, DENSE_NAME_TEXT_SP)
         holder.descriptionText?.setTextSize(TypedValue.COMPLEX_UNIT_SP, DENSE_DESCRIPTION_TEXT_SP)
@@ -343,9 +349,8 @@ class FileListAdapter(
         holder.itemLayout.isEnabled = isEnabled
         holder.menuButton.isEnabled = isEnabled
         holder.menuButton.isVisible = isMenuButtonVisible && viewType == FileViewType.LIST
-        if (isDenseStyle) {
-            applyDenseTextSize(holder)
-        }
+        // Item text sizes are uniform across single-pane and dual-pane columns.
+        applyDenseTextSize(holder)
         val menu = holder.popupMenu.menu
         val path = file.path
         val hasPickOptions = pickOptions != null
@@ -554,6 +559,91 @@ class FileListAdapter(
         val file = pendingActionsFile ?: return
         pendingActionsFile = null
         performMenuAction(file, actionId)
+    }
+
+    // Enables starting a continuous multi-selection from an item's icon: a drag that begins on an
+    // icon selects (or, if the start item is already selected, deselects) every item it passes
+    // over instead of scrolling the list; starting anywhere else scrolls normally. A plain tap on
+    // the icon keeps its original toggle behavior.
+    fun installIconMultiSelectGesture(recyclerView: RecyclerView) {
+        recyclerView.addOnItemTouchListener(object : RecyclerView.SimpleOnItemTouchListener() {
+            private var downFile: FileItem? = null
+            private var downSelected = false
+            private var hasMoved = false
+            private var lastTouchedFile: FileItem? = null
+
+            override fun onInterceptTouchEvent(rv: RecyclerView, e: MotionEvent): Boolean {
+                if (e.actionMasked != MotionEvent.ACTION_DOWN) {
+                    return false
+                }
+                val child = rv.findChildViewUnder(e.x, e.y) ?: return false
+                val position = rv.getChildAdapterPosition(child)
+                if (position == RecyclerView.NO_POSITION) {
+                    return false
+                }
+                val holder = rv.getChildViewHolder(child) as? ViewHolder ?: return false
+                if (!isInsideIconLayout(child, holder, e.x, e.y)) {
+                    return false
+                }
+                val file = getItem(position)
+                downFile = file
+                downSelected = file in selectedFiles
+                hasMoved = false
+                lastTouchedFile = null
+                // Keep the enclosing SwipeRefreshLayout from stealing this gesture, so dragging
+                // from an icon never triggers pull-to-refresh.
+                rv.requestDisallowInterceptTouchEvent(true)
+                return true
+            }
+
+            override fun onTouchEvent(rv: RecyclerView, e: MotionEvent) {
+                when (e.actionMasked) {
+                    MotionEvent.ACTION_MOVE -> {
+                        hasMoved = true
+                        val child = rv.findChildViewUnder(e.x, e.y) ?: return
+                        val position = rv.getChildAdapterPosition(child)
+                        if (position == RecyclerView.NO_POSITION) {
+                            return
+                        }
+                        val file = getItem(position)
+                        if (file != lastTouchedFile) {
+                            lastTouchedFile = file
+                            if (downSelected) {
+                                if (file in selectedFiles) {
+                                    listener.selectFile(file, false)
+                                }
+                            } else {
+                                selectFileIfUnselected(file)
+                            }
+                        }
+                    }
+                    MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                        val file = downFile
+                        downFile = null
+                        if (file != null && !hasMoved) {
+                            selectFile(file)
+                        }
+                        hasMoved = false
+                        lastTouchedFile = null
+                        rv.requestDisallowInterceptTouchEvent(false)
+                    }
+                }
+            }
+
+            private fun isInsideIconLayout(
+                child: View,
+                holder: ViewHolder,
+                x: Float,
+                y: Float
+            ): Boolean {
+                val iconLayout = holder.iconLayout
+                val left = child.left + iconLayout.left
+                val top = child.top + iconLayout.top
+                val right = left + iconLayout.width
+                val bottom = top + iconLayout.height
+                return x >= left && x < right && y >= top && y < bottom
+            }
+        })
     }
 
     private fun showItemActionsDialog(file: FileItem, menu: Menu) {

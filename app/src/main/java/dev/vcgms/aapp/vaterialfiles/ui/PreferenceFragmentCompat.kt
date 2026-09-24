@@ -2,9 +2,11 @@ package dev.vcgms.aapp.vaterialfiles.ui
 
 import android.os.Bundle
 import android.view.View
+import androidx.core.view.updatePaddingRelative
 import androidx.preference.ListPreference
 import androidx.preference.Preference
 import com.takisoft.preferencex.PreferenceFragmentCompat as TakisoftPreferenceFragmentCompat
+import dev.vcgms.aapp.vaterialfiles.R
 
 abstract class PreferenceFragmentCompat : TakisoftPreferenceFragmentCompat() {
     // @see https://github.com/Gericop/Android-Support-Preference-V7-Fix/issues/201
@@ -15,6 +17,12 @@ abstract class PreferenceFragmentCompat : TakisoftPreferenceFragmentCompat() {
         }
 
         super.onViewCreated(view, savedInstanceState)
+
+        // Add breathing room below the last preference so content never touches the edge.
+        listView.clipToPadding = false
+        listView.updatePaddingRelative(
+            bottom = resources.getDimensionPixelSize(R.dimen.preference_list_bottom_padding)
+        )
     }
 
     override fun onDisplayPreferenceDialog(preference: Preference) {
