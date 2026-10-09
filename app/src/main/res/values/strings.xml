@@ -259,6 +259,8 @@
     <string name="file_create_directory_title">New folder</string>
 
     <string name="file_list_title">Files</string>
+    <string name="user_storage_name">User storage</string>
+    <string name="user_storage_name_with_id_format">User %1$s storage</string>
     <plurals name="file_list_title_open_file">
         <item quantity="one">Select a file</item>
         <item quantity="other">Select files</item>
@@ -285,6 +287,7 @@
     <string name="file_list_path_error_invalid">Invalid path</string>
     <string name="file_list_action_view_sort">View and sort</string>
     <string name="file_list_action_dual_pane">Dual panes</string>
+    <string name="more">More</string>
     <string name="file_list_dual_pane_move_here">Move here</string>
     <string name="file_list_dual_pane_copy_here">Copy here</string>
     <string name="file_item_action_move_to_right">Move to right</string>
@@ -293,11 +296,13 @@
     <string name="file_item_action_copy_to_left">Copy to left</string>
     <string name="file_list_action_view_list">List</string>
     <string name="file_list_action_view_dual">Dual panes</string>
+    <string name="file_list_action_view_column">Columns</string>
     <string name="file_list_action_view_grid">Grid</string>
     <string name="file_list_action_sort_by_name">Name</string>
     <string name="file_list_action_sort_by_type">Type</string>
     <string name="file_list_action_sort_by_size">Size</string>
     <string name="file_list_action_sort_by_last_modified">Last modified</string>
+    <string name="file_list_action_sort_by_date">Date</string>
     <string name="file_list_action_sort_order_ascending">Ascending</string>
     <string name="file_list_action_sort_directories_first">Folders first</string>
     <string name="file_list_action_view_sort_path_specific">Only for this folder</string>
@@ -306,6 +311,7 @@
     <string name="file_list_action_navigate_to">Go to</string>
     <string name="file_list_navigate_to_title" translatable="false">@string/file_list_action_navigate_to</string>
     <string name="file_list_action_show_hidden_files">Show hidden files</string>
+    <string name="file_list_action_storage_analysis">Storage analysis</string>
     <string name="file_list_action_copy_path">Copy path</string>
     <string name="file_list_action_open_in_terminal">Open in terminal</string>
     <string name="file_list_action_add_bookmark">Add bookmark</string>
@@ -328,6 +334,8 @@
     <string name="file_list_action_create_directory">Folder</string>
 
     <string name="file_item_description_separator">\u0020\u0020\u0020\u0020</string>
+    <string name="file_item_storage_analysis_computing">Calculating…</string>
+    <string name="file_item_storage_analysis_percent_format">%1$d%%</string>
     <string name="file_item_action_open_with">Open with</string>
     <string name="file_item_action_select">Select</string>
     <string name="file_item_action_extract">Extract</string>
@@ -747,6 +755,10 @@
 
     <string name="settings_title">Settings</string>
     <string name="settings_interface_title">Interface</string>
+    <string name="settings_appearance_title">Appearance</string>
+    <string name="settings_directories_title">Directories</string>
+    <string name="settings_storage_analysis_title">Storage analysis</string>
+    <string name="settings_advanced_title">Advanced</string>
     <string name="settings_locale_title">Language</string>
     <string name="settings_theme_color_title">Theme color</string>
     <string name="settings_theme_color_summary">Color that appears most frequently in the app</string>
@@ -779,6 +791,7 @@
     <string name="settings_file_list_animation_title">File list animation</string>
     <string name="settings_file_name_ellipsize_title">Display long file name</string>
     <string-array name="settings_file_name_ellipsize_entries">
+        <item>Multiple lines</item>
         <item>Ellipsize the beginning</item>
         <item>Ellipsize the middle</item>
         <item>Ellipsize the end</item>
@@ -816,6 +829,10 @@
     <string name="settings_show_pdf_thumbnail_pre_28_title">Show thumbnail for PDF documents</string>
     <string name="settings_show_pdf_thumbnail_pre_28_summary">Might make the app unstable on older versions of Android</string>
     <string name="settings_read_remote_files_for_thumbnail_title">Read remote files for thumbnail</string>
+    <string name="settings_file_list_storage_analysis_only_user_subdirectories_title">Only analyze user subdirectories</string>
+    <string name="settings_file_list_storage_analysis_only_user_subdirectories_summary">Limit storage analysis to subdirectories of each user storage</string>
+    <string name="settings_file_list_storage_analysis_remote_directories_title">Analyze remote directories</string>
+    <string name="settings_file_list_storage_analysis_remote_directories_summary">Allow storage analysis to scan remote storage such as SMB, FTP, SFTP and WebDAV</string>
 
     <string name="settings_security_title">Security</string>
     <string name="settings_auth_title">Authentication</string>

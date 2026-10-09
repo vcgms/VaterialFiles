@@ -2,6 +2,7 @@ package dev.vcgms.aapp.vaterialfiles.settings
 
 import android.os.Build
 import android.os.Bundle
+import androidx.preference.Preference
 import dev.vcgms.aapp.vaterialfiles.R
 import dev.vcgms.aapp.vaterialfiles.security.SecurityManager
 import dev.vcgms.aapp.vaterialfiles.security.SetPinDialogFragment
@@ -12,9 +13,14 @@ import dev.vcgms.aapp.vaterialfiles.theme.night.NightModeHelper
 import dev.vcgms.aapp.vaterialfiles.ui.PreferenceFragmentCompat
 import dev.vcgms.aapp.vaterialfiles.util.show
 import dev.vcgms.aapp.vaterialfiles.util.showToast
+import dev.vcgms.aapp.vaterialfiles.util.valueCompat
 
 class SettingsPreferenceFragment : PreferenceFragmentCompat() {
     private lateinit var localePreference: LocalePreference
+
+    private lateinit var blackNightModePreference: Preference
+
+    private lateinit var appearanceCategory: CollapsiblePreferenceCategory
 
     override fun onCreatePreferencesFix(savedInstanceState: Bundle?, rootKey: String?) {
         addPreferencesFromResource(R.xml.settings)
@@ -26,6 +32,17 @@ class SettingsPreferenceFragment : PreferenceFragmentCompat() {
                 activity.setApplicationLocalesPre33(locales)
             }
         }
+        blackNightModePreference =
+            preferenceScreen.findPreference(getString(R.string.pref_key_black_night_mode))!!
+        appearanceCategory = preferenceScreen
+            .findPreference(getString(R.string.pref_key_settings_category_appearance))!!
+        appearanceCategory.onExpandedChanged = { updateBlackNightModePreferenceVisible() }
+        // Collapse every category by default; the expanded state survives configuration changes.
+        for (index in 0 until preferenceScreen.preferenceCount) {
+            (preferenceScreen.getPreference(index) as? CollapsiblePreferenceCategory)
+                ?.isExpanded = false
+        }
+        updateBlackNightModePreferenceVisible()
     }
 
     override fun onActivityCreated(savedInstanceState: Bundle?) {
@@ -50,6 +67,12 @@ class SettingsPreferenceFragment : PreferenceFragmentCompat() {
 
     private fun onMaterialYouChanged(materialYou: Boolean) {
         CustomThemeHelper.sync()
+        updateBlackNightModePreferenceVisible()
+    }
+
+    private fun updateBlackNightModePreferenceVisible() {
+        blackNightModePreference.isVisible =
+            appearanceCategory.isExpanded && !Settings.MATERIAL_YOU.valueCompat
     }
 
     private fun onDisplaySizeChanged(displaySize: DisplaySize) {

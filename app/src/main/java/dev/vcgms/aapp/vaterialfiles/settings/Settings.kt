@@ -1,7 +1,6 @@
 package dev.vcgms.aapp.vaterialfiles.settings
 
 import android.os.Environment
-import android.text.TextUtils
 import java8.nio.file.Path
 import java8.nio.file.Paths
 import dev.vcgms.aapp.vaterialfiles.R
@@ -57,6 +56,30 @@ object Settings {
         BooleanSettingLiveData(
             R.string.pref_key_file_list_dual_pane,
             R.bool.pref_default_value_file_list_dual_pane
+        )
+
+    val FILE_LIST_COLUMN_MODE: SettingLiveData<Boolean> =
+        BooleanSettingLiveData(
+            R.string.pref_key_file_list_column_mode,
+            R.bool.pref_default_value_file_list_column_mode
+        )
+
+    val FILE_LIST_STORAGE_ANALYSIS: SettingLiveData<Boolean> =
+        BooleanSettingLiveData(
+            R.string.pref_key_file_list_storage_analysis,
+            R.bool.pref_default_value_file_list_storage_analysis
+        )
+
+    val FILE_LIST_STORAGE_ANALYSIS_ONLY_USER_SUBDIRECTORIES: SettingLiveData<Boolean> =
+        BooleanSettingLiveData(
+            R.string.pref_key_file_list_storage_analysis_only_user_subdirectories,
+            R.bool.pref_default_value_file_list_storage_analysis_only_user_subdirectories
+        )
+
+    val FILE_LIST_STORAGE_ANALYSIS_REMOTE_DIRECTORIES: SettingLiveData<Boolean> =
+        BooleanSettingLiveData(
+            R.string.pref_key_file_list_storage_analysis_remote_directories,
+            R.bool.pref_default_value_file_list_storage_analysis_remote_directories
         )
 
     val FILE_LIST_GRID_COLUMNS: SettingLiveData<GridColumnCount> =
@@ -141,10 +164,10 @@ object Settings {
             R.string.pref_key_file_list_animation, R.bool.pref_default_value_file_list_animation
         )
 
-    val FILE_NAME_ELLIPSIZE: SettingLiveData<TextUtils.TruncateAt> =
+    val FILE_NAME_ELLIPSIZE: SettingLiveData<FileNameEllipsize> =
         EnumSettingLiveData(
             R.string.pref_key_file_name_ellipsize, R.string.pref_default_value_file_name_ellipsize,
-            TextUtils.TruncateAt::class.java
+            FileNameEllipsize::class.java
         )
 
     val STANDARD_DIRECTORY_SETTINGS: SettingLiveData<List<StandardDirectorySettings>> =

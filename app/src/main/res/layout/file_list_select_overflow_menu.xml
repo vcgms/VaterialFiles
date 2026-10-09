@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:background="?attr/popupMenuBackground"
+    android:paddingTop="8dp"
+    android:paddingBottom="8dp">
+
+    <!-- Top icon row: select all / share -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:paddingStart="4dp"
+        android:paddingEnd="4dp"
+        android:layout_marginBottom="4dp">
+
+        <ImageButton
+            android:id="@+id/soverflow_select_all"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:background="?selectableItemBackgroundBorderless"
+            android:contentDescription="@string/select_all"
+            android:src="@drawable/select_all_icon_control_normal_24dp" />
+
+        <ImageButton
+            android:id="@+id/soverflow_share"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:background="?selectableItemBackgroundBorderless"
+            android:contentDescription="@string/share"
+            android:src="@drawable/share_icon_control_normal_24dp" />
+    </LinearLayout>
+
+    
+    <LinearLayout
+        android:id="@+id/soverflow_extract"
+        android:layout_width="match_parent"
+        android:layout_height="40dp"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:background="?selectableItemBackground"
+        android:clickable="true"
+        android:focusable="true"
+        android:paddingStart="12dp"
+        android:paddingEnd="12dp">
+
+        <ImageView
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:src="@drawable/extract_icon_control_normal_24dp" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="12dp"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:text="@string/file_list_select_action_extract"
+            android:textAppearance="?textAppearanceBody2" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/soverflow_archive"
+        android:layout_width="match_parent"
+        android:layout_height="40dp"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:background="?selectableItemBackground"
+        android:clickable="true"
+        android:focusable="true"
+        android:paddingStart="12dp"
+        android:paddingEnd="12dp">
+
+        <ImageView
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:src="@drawable/archive_icon_control_normal_24dp" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="12dp"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:text="@string/file_list_select_action_archive"
+            android:textAppearance="?textAppearanceBody2" />
+    </LinearLayout>
+</LinearLayout>

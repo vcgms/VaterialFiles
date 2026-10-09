@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24"
+    android:tint="?colorControlNormal">
+
+    <!-- New task: two overlapping windows (distinct from open-in-new's box+arrow) -->
+    <path
+        android:fillType="evenOdd"
+        android:fillColor="@android:color/white"
+        android:pathData="M8,2v2h10v10h2V2H8zM4,6v14h12V6H4zM6,8h8v10H6V8z" />
+</vector>

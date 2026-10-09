@@ -5,10 +5,14 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.updatePadding
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.LifecycleOwner
 import androidx.recyclerview.widget.LinearLayoutManager
 import java8.nio.file.Path
+import dev.vcgms.aapp.vaterialfiles.R
 import dev.vcgms.aapp.vaterialfiles.databinding.NavigationFragmentBinding
 import dev.vcgms.aapp.vaterialfiles.util.startActivitySafe
 
@@ -38,6 +42,16 @@ class NavigationFragment : Fragment(), NavigationItem.Listener {
         binding.recyclerView.layoutManager = LinearLayoutManager(context)
         adapter = NavigationListAdapter(this, context)
         binding.recyclerView.adapter = adapter
+
+        // The drawer content is not inset by the system bars, so push the header below the
+        // status bar ourselves.
+        ViewCompat.setOnApplyWindowInsetsListener(binding.headerTitle) { view, insets ->
+            val basePaddingTop =
+                view.resources.getDimensionPixelSize(R.dimen.navigation_header_padding_top)
+            val statusBarHeight = insets.getInsets(WindowInsetsCompat.Type.systemBars()).top
+            view.updatePadding(top = basePaddingTop + statusBarHeight)
+            insets
+        }
 
         val viewLifecycleOwner = viewLifecycleOwner
         NavigationItemListLiveData.observe(viewLifecycleOwner) { onNavigationItemsChanged(it) }

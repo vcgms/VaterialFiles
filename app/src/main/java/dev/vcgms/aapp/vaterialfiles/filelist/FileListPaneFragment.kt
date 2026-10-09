@@ -4,6 +4,9 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.os.Parcelable
+import android.view.DragEvent
+import android.content.ClipData
 import android.view.LayoutInflater
 import android.view.MotionEvent
 import android.view.View
@@ -89,6 +92,14 @@ class FileListPaneFragment : Fragment(), FileListAdapter.Listener,
     // Called when this pane's selection changes so the host can sync the overlay action bar.
     var selectionListener: ((FileItemSet) -> Unit)? = null
 
+    // Column view mode: tapping a directory reports it to the host (which appends a new column)
+    // instead of navigating this pane in place, and long press starts a cross-column drag
+    // instead of showing the item actions dialog.
+    var columnMode = false
+
+    // Called in column mode when a directory is tapped, with the directory to expand.
+    var columnExpandListener: ((Path) -> Unit)? = null
+
     private lateinit var binding: FileListPaneBinding
 
     private lateinit var layoutManager: GridLayoutManager
@@ -167,27 +178,38 @@ class FileListPaneFragment : Fragment(), FileListAdapter.Listener,
             // Dual-pane columns hide the per-item menu button and show its menu on long press.
             isMenuButtonVisible = false
             isDenseStyle = true
-            moveToOtherPaneListener = { file, copy -> onMoveCopyToOtherPane(file, copy) }
-            moveToOtherPaneTitle = getString(
-                if (paneId == DualPaneController.PANE_LEFT) {
-                    R.string.file_item_action_move_to_right
-                } else {
-                    R.string.file_item_action_move_to_left
+            if (columnMode) {
+                // Column view: long press starts a cross-column drag handled by the host.
+                itemDragListener = { itemView, file ->
+                    ColumnController.draggingFile = file
+                    ColumnController.draggingColumnIndex = paneId
+                    itemView.startDragAndDrop(
+                        ClipData.newPlainText("", ""), View.DragShadowBuilder(itemView), itemView, 0
+                    )
                 }
-            )
-            copyToOtherPaneTitle = getString(
-                if (paneId == DualPaneController.PANE_LEFT) {
-                    R.string.file_item_action_copy_to_right
-                } else {
-                    R.string.file_item_action_copy_to_left
-                }
-            )
-            moveToOtherPaneIconRes = if (paneId == DualPaneController.PANE_LEFT) {
-                R.drawable.arrow_end_icon_control_normal_24dp
             } else {
-                R.drawable.arrow_start_icon_control_normal_24dp
+                moveToOtherPaneListener = { file, copy -> onMoveCopyToOtherPane(file, copy) }
+                moveToOtherPaneTitle = getString(
+                    if (paneId == DualPaneController.PANE_LEFT) {
+                        R.string.file_item_action_move_to_right
+                    } else {
+                        R.string.file_item_action_move_to_left
+                    }
+                )
+                copyToOtherPaneTitle = getString(
+                    if (paneId == DualPaneController.PANE_LEFT) {
+                        R.string.file_item_action_copy_to_right
+                    } else {
+                        R.string.file_item_action_copy_to_left
+                    }
+                )
+                moveToOtherPaneIconRes = if (paneId == DualPaneController.PANE_LEFT) {
+                    R.drawable.arrow_end_icon_control_normal_24dp
+                } else {
+                    R.drawable.arrow_start_icon_control_normal_24dp
+                }
+                copyToOtherPaneIconRes = R.drawable.copy_icon_control_normal_24dp
             }
-            copyToOtherPaneIconRes = R.drawable.copy_icon_control_normal_24dp
         }
         binding.paneRecyclerView.adapter = adapter
         adapter.installIconMultiSelectGesture(binding.paneRecyclerView)
@@ -316,6 +338,34 @@ class FileListPaneFragment : Fragment(), FileListAdapter.Listener,
         viewModel.navigateTo(state!!, path)
     }
 
+    // Saves and returns this pane's scroll state so the host can store it in the trail before
+    // navigating to a directory tapped in this column.
+    fun saveScrollState(): Parcelable? =
+        if (::layoutManager.isInitialized) layoutManager.onSaveInstanceState() else null
+
+    // The pane's recycler view, or null before the view is created; the host attaches the
+    // cross-column drag listener to it once the view exists.
+    val paneRecyclerViewOrNull: RecyclerView?
+        get() = if (::binding.isInitialized) binding.paneRecyclerView else null
+
+    // Finds the directory under a cross-column drag event in this pane's list, or null when the
+    // drop target is not a directory (or is the dragged file itself).
+    fun findColumnDropTargetDirectory(event: DragEvent, draggedFile: FileItem): Path? {
+        if (!::binding.isInitialized) {
+            return null
+        }
+        val recyclerView = binding.paneRecyclerView
+        val child = recyclerView.findChildViewUnder(
+            event.x - recyclerView.left, event.y - recyclerView.top
+        ) ?: return null
+        val position = recyclerView.getChildAdapterPosition(child)
+        if (position == RecyclerView.NO_POSITION) {
+            return null
+        }
+        val file = adapter.getItem(position)
+        return if (file.attributes.isDirectory && file.path != draggedFile.path) file.path else null
+    }
+
     override fun clearSelectedFiles() {
         viewModel.clearSelectedFiles()
     }
@@ -334,7 +384,11 @@ class FileListPaneFragment : Fragment(), FileListAdapter.Listener,
             return
         }
         if (file.isListable) {
-            navigateToPath(file.listablePath)
+            if (columnMode) {
+                columnExpandListener?.invoke(file.listablePath)
+            } else {
+                navigateToPath(file.listablePath)
+            }
             return
         }
         openFileWithIntent(file, false)

@@ -3,15 +3,24 @@ package dev.vcgms.aapp.vaterialfiles.filelist
 import android.app.Activity
 import android.content.ClipData
 import android.content.Context
+import android.content.res.ColorStateList
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
+import android.graphics.Paint
+import android.graphics.Canvas
+import android.graphics.Color
+import android.graphics.drawable.Drawable
+import android.graphics.drawable.GradientDrawable
 import android.os.Build
 import android.os.Bundle
 import android.os.Environment
 import android.os.Handler
 import android.os.Looper
-import android.text.TextUtils
+import android.text.SpannableStringBuilder
+import android.text.Spanned
+import android.text.TextPaint
+import android.text.style.ImageSpan
 import android.view.DragEvent
 import android.view.KeyCharacterMap
 import android.view.KeyEvent
@@ -20,9 +29,14 @@ import android.view.Menu
 import android.view.MenuInflater
 import android.view.MenuItem
 import android.view.View
+import android.view.Gravity
 import android.view.ViewGroup
 import android.widget.EditText
+import android.widget.HorizontalScrollView
+import android.widget.ImageButton
+import android.widget.ImageView
 import android.widget.LinearLayout
+import android.widget.PopupWindow
 import android.widget.ProgressBar
 import android.widget.TextView
 import androidx.activity.OnBackPressedCallback
@@ -40,11 +54,14 @@ import androidx.core.view.isVisible
 import androidx.core.view.updatePaddingRelative
 import androidx.drawerlayout.widget.DrawerLayout
 import androidx.fragment.app.Fragment
+import androidx.fragment.app.FragmentContainerView
 import androidx.fragment.app.commit
+import androidx.fragment.app.commitNow
 import androidx.lifecycle.LifecycleOwner
 import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
+import com.google.android.material.color.MaterialColors
 import com.leinardi.android.speeddial.SpeedDialView
 import java8.nio.file.Path
 import java8.nio.file.Paths
@@ -54,6 +71,7 @@ import dev.vcgms.aapp.vaterialfiles.R
 import dev.vcgms.aapp.vaterialfiles.app.application
 import dev.vcgms.aapp.vaterialfiles.app.clipboardManager
 import dev.vcgms.aapp.vaterialfiles.compat.checkSelfPermissionCompat
+import dev.vcgms.aapp.vaterialfiles.compat.getDrawableCompat
 import dev.vcgms.aapp.vaterialfiles.compat.setGroupDividerEnabledCompat
 import dev.vcgms.aapp.vaterialfiles.databinding.FileListFragmentAppBarIncludeBinding
 import dev.vcgms.aapp.vaterialfiles.databinding.FileListFragmentBinding
@@ -61,8 +79,12 @@ import dev.vcgms.aapp.vaterialfiles.databinding.FileListFragmentBottomBarInclude
 import dev.vcgms.aapp.vaterialfiles.databinding.FileListFragmentContentIncludeBinding
 import dev.vcgms.aapp.vaterialfiles.databinding.FileListFragmentIncludeBinding
 import dev.vcgms.aapp.vaterialfiles.databinding.FileListFragmentSpeedDialIncludeBinding
+import dev.vcgms.aapp.vaterialfiles.databinding.FileListOverflowMenuBinding
+import dev.vcgms.aapp.vaterialfiles.databinding.FileListSelectOverflowMenuBinding
+import dev.vcgms.aapp.vaterialfiles.databinding.FileListViewSortMenuBinding
 import dev.vcgms.aapp.vaterialfiles.file.FileItem
 import dev.vcgms.aapp.vaterialfiles.file.MimeType
+import dev.vcgms.aapp.vaterialfiles.file.asFileSize
 import dev.vcgms.aapp.vaterialfiles.file.asMimeTypeOrNull
 import dev.vcgms.aapp.vaterialfiles.file.extension
 import dev.vcgms.aapp.vaterialfiles.file.fileProviderUri
@@ -80,6 +102,7 @@ import dev.vcgms.aapp.vaterialfiles.provider.archive.createArchiveRootPath
 import dev.vcgms.aapp.vaterialfiles.provider.archive.isArchivePath
 import dev.vcgms.aapp.vaterialfiles.provider.linux.isLinuxPath
 import dev.vcgms.aapp.vaterialfiles.settings.Settings
+import dev.vcgms.aapp.vaterialfiles.settings.FileNameEllipsize
 import dev.vcgms.aapp.vaterialfiles.terminal.Terminal
 import dev.vcgms.aapp.vaterialfiles.ui.AppBarLayoutExpandHackListener
 import dev.vcgms.aapp.vaterialfiles.ui.CoordinatorAppBarLayout
@@ -184,12 +207,30 @@ class FileListFragment : Fragment(), BreadcrumbLayout.Listener, FileListAdapter.
 
     private var activePane: FileListPaneFragment? = null
 
+    // Column view mode: the column panes in trail order, with their dynamically generated
+    // container ids and the path each column is bound to (tracked here because a freshly
+    // committed pane's view model is not readable until it attaches).
+    private val columnPanes = mutableListOf<FileListPaneFragment>()
+
+    private val columnContainerIds = mutableListOf<Int>()
+
+    private val columnPaths = mutableListOf<Path>()
+
     // The source file of an in-flight single-pane drag, cleared once the drag ends.
     private var draggingFile: FileItem? = null
 
     private var pendingSinglePaneDrag: PendingSinglePaneDrag? = null
 
     private var navigateUpBackCallback: OnBackPressedCallback? = null
+
+    private val storageAnalysisComputer = StorageAnalysisComputer()
+
+    // The accumulated total size reported by the current storage analysis walk, or null before
+    // the walk has reported anything.
+    private var storageAnalysisTotal: Long? = null
+
+    // Whether a storage analysis walk is currently in progress for the current directory.
+    private var isStorageAnalysisComputing = false
 
     private val debouncedSearchRunnable = DebouncedRunnable(Handler(Looper.getMainLooper()), 1000) {
         if (!isResumed || !viewModel.isSearchViewExpanded) {
@@ -205,15 +246,24 @@ class FileListFragment : Fragment(), BreadcrumbLayout.Listener, FileListAdapter.
     private val isDualPane: Boolean
         get() = Settings.FILE_LIST_DUAL_PANE.valueCompat
 
+    // Column view (Miller columns): one column per trail level, rendered from reusable panes.
+    private val isColumnMode: Boolean
+        get() = Settings.FILE_LIST_COLUMN_MODE.valueCompat
+
+    // Both multi-pane layouts share the "active pane" routing for view models, selection,
+    // paste state and the overlay/bottom toolbars.
+    private val isPaneMode: Boolean
+        get() = isDualPane || isColumnMode
+
     // In dual-pane mode, path/paste-related operations act on the active pane's view model;
     // otherwise they act on this fragment's own view model.
     private val activeViewModel: FileListViewModel
-        get() = if (isDualPane) activePane?.viewModelOrNull ?: viewModel else viewModel
+        get() = if (isPaneMode) activePane?.viewModelOrNull ?: viewModel else viewModel
 
     // Selection is per-column in dual-pane mode; the overlay action bar always reflects the
     // active column's selection.
     private val activeSelectedFiles: FileItemSet
-        get() = if (isDualPane) {
+        get() = if (isPaneMode) {
             activePane?.viewModelOrNull?.selectedFiles ?: fileItemSetOf()
         } else {
             viewModel.selectedFiles
@@ -261,6 +311,26 @@ class FileListFragment : Fragment(), BreadcrumbLayout.Listener, FileListAdapter.
         binding.appBarLayout.syncBackgroundColorTo(binding.overlayToolbar)
         binding.breadcrumbLayout.setListener(this)
         binding.breadcrumbLayout.dropListener = ::onBreadcrumbDrop
+        binding.breadcrumbLayout.columnMode = isColumnMode
+        binding.breadcrumbLayout.columnItemTapListener = ::onBreadcrumbColumnItemTapped
+        // The address bar scrolls in 1:1 lockstep with the column container (same item width,
+        // same start padding), driven solely by the columns' horizontal scroll offset.
+        binding.columnPaneContainer?.setOnScrollChangeListener { _, scrollX, _, _, _ ->
+            binding.breadcrumbLayout.scrollTo(scrollX, 0)
+        }
+        if (isColumnMode) {
+            // Column pane containers use dynamically generated ids, so column panes restored by
+            // the fragment manager after a process recreation cannot be re-attached; drop them
+            // and let renderColumns() rebuild the columns from the trail.
+            val restoredPanes = childFragmentManager.fragments.filterIsInstance<FileListPaneFragment>()
+            if (restoredPanes.isNotEmpty()) {
+                childFragmentManager.commitNow {
+                    for (pane in restoredPanes) {
+                        remove(pane)
+                    }
+                }
+            }
+        }
         if (!(activity.hasSw600Dp && activity.isOrientationLandscape)) {
             binding.swipeRefreshLayout.setProgressViewEndTarget(
                 true, binding.swipeRefreshLayout.progressViewEndOffset
@@ -310,6 +380,9 @@ class FileListFragment : Fragment(), BreadcrumbLayout.Listener, FileListAdapter.
         addOnBackPressedCallback(overlayActionMode.onBackPressedCallback)
         addOnBackPressedCallback(SpeedDialViewOnBackPressedCallback(binding.speedDialView))
         binding.drawerLayout?.let {
+            // Disable the edge swipe gesture; the drawer is opened and closed only through the
+            // navigation (hamburger) button, while the back press callback still closes it.
+            it.setDrawerLockMode(DrawerLayout.LOCK_MODE_LOCKED_CLOSED)
             addOnBackPressedCallback(DrawerLayoutOnBackPressedCallback(it))
         }
 
@@ -380,7 +453,11 @@ class FileListFragment : Fragment(), BreadcrumbLayout.Listener, FileListAdapter.
         }
         viewModel.breadcrumbLiveData.observe(viewLifecycleOwner) {
             if (!isDualPane) {
+                // In dual-pane mode the active pane drives the address bar instead.
                 binding.breadcrumbLayout.setData(it)
+            }
+            if (isColumnMode) {
+                renderColumns(it.paths)
             }
         }
         viewModel.viewTypeLiveData.observe(viewLifecycleOwner) { onViewTypeChanged(it) }
@@ -406,6 +483,16 @@ class FileListFragment : Fragment(), BreadcrumbLayout.Listener, FileListAdapter.
             onShowHiddenFilesChanged(it)
         }
         Settings.FILE_LIST_DUAL_PANE.observe(viewLifecycleOwner) { onDualPaneChanged(it) }
+        Settings.FILE_LIST_COLUMN_MODE.observe(viewLifecycleOwner) { onColumnModeChanged(it) }
+        Settings.FILE_LIST_STORAGE_ANALYSIS.observe(viewLifecycleOwner) {
+            onStorageAnalysisChanged(it)
+        }
+        Settings.FILE_LIST_STORAGE_ANALYSIS_ONLY_USER_SUBDIRECTORIES.observe(viewLifecycleOwner) {
+            startStorageAnalysisIfEnabled()
+        }
+        Settings.FILE_LIST_STORAGE_ANALYSIS_REMOTE_DIRECTORIES.observe(viewLifecycleOwner) {
+            startStorageAnalysisIfEnabled()
+        }
         childFragmentManager.setFragmentResultListener(
             MoveCopyDialogFragment.REQUEST_KEY, viewLifecycleOwner
         ) { _, bundle ->
@@ -429,11 +516,17 @@ class FileListFragment : Fragment(), BreadcrumbLayout.Listener, FileListAdapter.
         }
     }
 
+    override fun onDestroyView() {
+        super.onDestroyView()
+
+        storageAnalysisComputer.cancel()
+        storageAnalysisTotal = null
+    }
+
     override fun onCreateOptionsMenu(menu: Menu, inflater: MenuInflater) {
         super.onCreateOptionsMenu(menu, inflater)
 
         menuBinding = MenuBinding.inflate(menu, inflater)
-        menuBinding.viewSortItem.subMenu!!.setGroupDividerEnabledCompat(true)
         setUpSearchView()
     }
 
@@ -483,14 +576,6 @@ class FileListFragment : Fragment(), BreadcrumbLayout.Listener, FileListAdapter.
         }
     }
 
-    override fun onPrepareOptionsMenu(menu: Menu) {
-        super.onPrepareOptionsMenu(menu)
-
-        updateViewSortMenuItems()
-        updateSelectAllMenuItem()
-        updateShowHiddenFilesMenuItem()
-    }
-
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         return when (item.itemId) {
             android.R.id.home -> {
@@ -502,103 +587,233 @@ class FileListFragment : Fragment(), BreadcrumbLayout.Listener, FileListAdapter.
                 }
                 true
             }
-            R.id.action_view_list -> {
-                Settings.FILE_LIST_DUAL_PANE.putValue(false)
-                viewModel.viewType = FileViewType.LIST
+            R.id.action_view_sort -> {
+                showViewSortMenu()
                 true
             }
-            R.id.action_view_dual -> {
-                Settings.FILE_LIST_DUAL_PANE.putValue(true)
-                true
-            }
-            R.id.action_view_grid -> {
-                Settings.FILE_LIST_DUAL_PANE.putValue(false)
-                viewModel.viewType = FileViewType.GRID
-                true
-            }
-            R.id.action_sort_by_name -> {
-                activeViewModel.setSortBy(By.NAME)
-                true
-            }
-            R.id.action_sort_by_type -> {
-                activeViewModel.setSortBy(By.TYPE)
-                true
-            }
-            R.id.action_sort_by_size -> {
-                activeViewModel.setSortBy(By.SIZE)
-                true
-            }
-            R.id.action_sort_by_last_modified -> {
-                activeViewModel.setSortBy(By.LAST_MODIFIED)
-                true
-            }
-            R.id.action_sort_order_ascending -> {
-                activeViewModel.setSortOrder(
-                    if (!menuBinding.sortOrderAscendingItem.isChecked) {
-                        Order.ASCENDING
-                    } else {
-                        Order.DESCENDING
-                    }
-                )
-                true
-            }
-            R.id.action_sort_directories_first -> {
-                activeViewModel.setSortDirectoriesFirst(
-                    !menuBinding.sortDirectoriesFirstItem.isChecked
-                )
-                true
-            }
-            R.id.action_view_sort_path_specific -> {
-                activeViewModel.isViewSortPathSpecific =
-                    !menuBinding.viewSortPathSpecificItem.isChecked
-                true
-            }
-            R.id.action_new_task -> {
-                newTask()
-                true
-            }
-            R.id.action_navigate_up -> {
-                navigateUp()
-                true
-            }
-            R.id.action_navigate_to -> {
-                showNavigateToPathDialog()
-                true
-            }
-            R.id.action_refresh -> {
-                refresh()
-                true
-            }
-            R.id.action_select_all -> {
-                selectAllFiles()
-                true
-            }
-            R.id.action_show_hidden_files -> {
-                setShowHiddenFiles(!menuBinding.showHiddenFilesItem.isChecked)
-                true
-            }
-            R.id.action_share -> {
-                share()
-                true
-            }
-            R.id.action_copy_path -> {
-                copyPath()
-                true
-            }
-            R.id.action_open_in_terminal -> {
-                openInTerminal()
-                true
-            }
-            R.id.action_add_bookmark -> {
-                addBookmark()
-                true
-            }
-            R.id.action_create_shortcut -> {
-                createShortcut()
+            R.id.action_overflow -> {
+                showOverflowMenu()
                 true
             }
             else -> super.onOptionsItemSelected(item)
         }
+    }
+
+    private var overflowPopup: PopupWindow? = null
+
+    private fun showOverflowMenu() {
+        overflowPopup?.dismiss()
+        val overflowBinding = FileListOverflowMenuBinding.inflate(layoutInflater)
+        val pickOptions = viewModel.pickOptions
+        overflowBinding.overflowSelectAll.isVisible =
+            !isPaneMode && (pickOptions == null || pickOptions.allowMultiple)
+        overflowBinding.overflowShowHiddenCheck.isVisible =
+            Settings.FILE_LIST_SHOW_HIDDEN_FILES.valueCompat
+        overflowBinding.overflowStorageAnalysisCheck.isVisible =
+            Settings.FILE_LIST_STORAGE_ANALYSIS.valueCompat
+        fun bindClick(view: View, action: () -> Unit) {
+            view.setOnClickListener {
+                overflowPopup?.dismiss()
+                action()
+            }
+        }
+        bindClick(overflowBinding.overflowNavigateUp) { navigateUp() }
+        bindClick(overflowBinding.overflowRefresh) { refresh() }
+        bindClick(overflowBinding.overflowSelectAll) { selectAllFiles() }
+        bindClick(overflowBinding.overflowShare) { share() }
+        bindClick(overflowBinding.overflowNewTask) { newTask() }
+        bindClick(overflowBinding.overflowNavigateTo) { showNavigateToPathDialog() }
+        bindClick(overflowBinding.overflowShowHiddenFiles) {
+            setShowHiddenFiles(!Settings.FILE_LIST_SHOW_HIDDEN_FILES.valueCompat)
+        }
+        bindClick(overflowBinding.overflowStorageAnalysis) { toggleStorageAnalysis() }
+        bindClick(overflowBinding.overflowCopyPath) { copyPath() }
+        bindClick(overflowBinding.overflowOpenInTerminal) { openInTerminal() }
+        bindClick(overflowBinding.overflowAddBookmark) { addBookmark() }
+        bindClick(overflowBinding.overflowCreateShortcut) { createShortcut() }
+        val popup = PopupWindow(
+            overflowBinding.root,
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+            true
+        )
+        popup.elevation = resources.displayMetrics.density * 8
+        popup.isOutsideTouchable = true
+        popup.showAsDropDown(binding.toolbar, 0, 0, Gravity.END)
+        overflowPopup = popup
+    }
+
+    private var viewSortPopup: PopupWindow? = null
+
+    private fun showViewSortMenu() {
+        viewSortPopup?.dismiss()
+        val viewSortBinding = FileListViewSortMenuBinding.inflate(layoutInflater)
+        // The three view modes are mutually exclusive; the selected one is rendered inverted
+        // (filled background + surface-colored icon) to make the current mode obvious.
+        fun tintViewButton(button: ImageButton, checked: Boolean) {
+            val backgroundColor = if (checked) {
+                MaterialColors.getColor(button, android.R.attr.colorControlNormal, Color.TRANSPARENT)
+            } else {
+                Color.TRANSPARENT
+            }
+            button.background = GradientDrawable().apply {
+                cornerRadius = 8f * resources.displayMetrics.density
+                setColor(backgroundColor)
+            }
+            val iconColor = if (checked) {
+                MaterialColors.getColor(
+                    button, com.google.android.material.R.attr.colorSurface, Color.WHITE
+                )
+            } else {
+                MaterialColors.getColor(button, android.R.attr.colorControlNormal, Color.WHITE)
+            }
+            button.imageTintList = ColorStateList.valueOf(iconColor)
+        }
+        // Text buttons render the same inverted selection state as the icon buttons.
+        fun tintViewText(view: TextView, checked: Boolean) {
+            val backgroundColor = if (checked) {
+                MaterialColors.getColor(view, android.R.attr.colorControlNormal, Color.TRANSPARENT)
+            } else {
+                Color.TRANSPARENT
+            }
+            view.background = GradientDrawable().apply {
+                cornerRadius = 8f * resources.displayMetrics.density
+                setColor(backgroundColor)
+            }
+            val textColor = if (checked) {
+                MaterialColors.getColor(
+                    view, com.google.android.material.R.attr.colorSurface, Color.WHITE
+                )
+            } else {
+                MaterialColors.getColor(view, android.R.attr.colorControlNormal, Color.WHITE)
+            }
+            view.setTextColor(textColor)
+        }
+        tintViewButton(
+            viewSortBinding.vsViewList,
+            !isPaneMode && activeViewModel.viewType == FileViewType.LIST
+        )
+        tintViewButton(viewSortBinding.vsViewDual, isDualPane)
+        tintViewButton(viewSortBinding.vsViewColumn, isColumnMode)
+        tintViewButton(
+            viewSortBinding.vsViewGrid,
+            !isPaneMode && activeViewModel.viewType == FileViewType.GRID
+        )
+        viewSortBinding.vsViewList.setOnClickListener {
+            viewSortPopup?.dismiss()
+            Settings.FILE_LIST_DUAL_PANE.putValue(false)
+            Settings.FILE_LIST_COLUMN_MODE.putValue(false)
+            activeViewModel.viewType = FileViewType.LIST
+        }
+        viewSortBinding.vsViewDual.setOnClickListener {
+            viewSortPopup?.dismiss()
+            Settings.FILE_LIST_STORAGE_ANALYSIS.putValue(false)
+            Settings.FILE_LIST_COLUMN_MODE.putValue(false)
+            Settings.FILE_LIST_DUAL_PANE.putValue(true)
+        }
+        viewSortBinding.vsViewColumn.setOnClickListener {
+            viewSortPopup?.dismiss()
+            Settings.FILE_LIST_STORAGE_ANALYSIS.putValue(false)
+            Settings.FILE_LIST_DUAL_PANE.putValue(false)
+            Settings.FILE_LIST_COLUMN_MODE.putValue(true)
+        }
+        viewSortBinding.vsViewGrid.setOnClickListener {
+            viewSortPopup?.dismiss()
+            Settings.FILE_LIST_STORAGE_ANALYSIS.putValue(false)
+            Settings.FILE_LIST_COLUMN_MODE.putValue(false)
+            Settings.FILE_LIST_DUAL_PANE.putValue(false)
+            activeViewModel.viewType = FileViewType.GRID
+        }
+        fun updateSortChecks() {
+            val sortOptions = activeViewModel.sortOptions
+            tintViewText(viewSortBinding.vsSortByName, sortOptions.by == By.NAME)
+            tintViewText(viewSortBinding.vsSortByType, sortOptions.by == By.TYPE)
+            tintViewText(viewSortBinding.vsSortBySize, sortOptions.by == By.SIZE)
+            tintViewText(
+                viewSortBinding.vsSortByLastModified, sortOptions.by == By.LAST_MODIFIED
+            )
+            tintViewButton(
+                viewSortBinding.vsSortOrderAscending, sortOptions.order == Order.ASCENDING
+            )
+            tintViewButton(
+                viewSortBinding.vsSortDirectoriesFirst, sortOptions.isDirectoriesFirst
+            )
+            tintViewButton(
+                viewSortBinding.vsViewSortPathSpecific, activeViewModel.isViewSortPathSpecific
+            )
+        }
+        updateSortChecks()
+        viewSortBinding.vsSortByName.setOnClickListener {
+            activeViewModel.setSortBy(By.NAME)
+            updateSortChecks()
+        }
+        viewSortBinding.vsSortByType.setOnClickListener {
+            activeViewModel.setSortBy(By.TYPE)
+            updateSortChecks()
+        }
+        viewSortBinding.vsSortBySize.setOnClickListener {
+            activeViewModel.setSortBy(By.SIZE)
+            updateSortChecks()
+        }
+        viewSortBinding.vsSortByLastModified.setOnClickListener {
+            activeViewModel.setSortBy(By.LAST_MODIFIED)
+            updateSortChecks()
+        }
+        viewSortBinding.vsSortOrderAscending.setOnClickListener {
+            activeViewModel.setSortOrder(
+                if (activeViewModel.sortOptions.order == Order.ASCENDING) {
+                    Order.DESCENDING
+                } else {
+                    Order.ASCENDING
+                }
+            )
+            updateSortChecks()
+        }
+        viewSortBinding.vsSortDirectoriesFirst.setOnClickListener {
+            activeViewModel.setSortDirectoriesFirst(!activeViewModel.sortOptions.isDirectoriesFirst)
+            updateSortChecks()
+        }
+        viewSortBinding.vsViewSortPathSpecific.setOnClickListener {
+            activeViewModel.isViewSortPathSpecific = !activeViewModel.isViewSortPathSpecific
+            updateSortChecks()
+        }
+        val popup = PopupWindow(
+            viewSortBinding.root,
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+            true
+        )
+        popup.elevation = resources.displayMetrics.density * 8
+        popup.isOutsideTouchable = true
+        popup.showAsDropDown(binding.toolbar, 0, 0, Gravity.END)
+        viewSortPopup = popup
+    }
+
+    private var selectionOverflowPopup: PopupWindow? = null
+
+    private fun showSelectionOverflowMenu() {
+        selectionOverflowPopup?.dismiss()
+        val selectionBinding = FileListSelectOverflowMenuBinding.inflate(layoutInflater)
+        fun bindClick(view: View, action: () -> Unit) {
+            view.setOnClickListener {
+                selectionOverflowPopup?.dismiss()
+                action()
+            }
+        }
+        bindClick(selectionBinding.soverflowSelectAll) { selectAllFiles() }
+        bindClick(selectionBinding.soverflowShare) { shareFiles(activeSelectedFiles) }
+        bindClick(selectionBinding.soverflowExtract) { extractFiles(activeSelectedFiles) }
+        bindClick(selectionBinding.soverflowArchive) { showCreateArchiveDialog(activeSelectedFiles) }
+        val popup = PopupWindow(
+            selectionBinding.root,
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+            true
+        )
+        popup.elevation = resources.displayMetrics.density * 8
+        popup.isOutsideTouchable = true
+        popup.showAsDropDown(binding.overlayToolbar, 0, 0, Gravity.END)
+        selectionOverflowPopup = popup
     }
 
     fun onKeyShortcut(keyCode: Int, event: KeyEvent): Boolean {
@@ -642,7 +857,14 @@ class FileListFragment : Fragment(), BreadcrumbLayout.Listener, FileListAdapter.
     }
 
     private fun onSearchViewExpandedChanged(expanded: Boolean) {
-        updateViewSortMenuItems()
+        if (this::menuBinding.isInitialized) {
+            menuBinding.viewSortItem.isVisible = !expanded
+        }
+        if (expanded) {
+            Settings.FILE_LIST_STORAGE_ANALYSIS.putValue(false)
+            // Search only applies to the single-column list.
+            Settings.FILE_LIST_COLUMN_MODE.putValue(false)
+        }
     }
 
     private fun onFileListChanged(stateful: Stateful<List<FileItem>>) {
@@ -666,6 +888,9 @@ class FileListFragment : Fragment(), BreadcrumbLayout.Listener, FileListAdapter.
         binding.emptyView.fadeToVisibilityUnsafe(stateful is Success && !hasFiles)
         if (files != null) {
             updateAdapterFileList()
+            if (stateful is Success) {
+                startStorageAnalysisIfEnabled()
+            }
         } else {
             // This resets animation as well.
             adapter.clear()
@@ -679,9 +904,15 @@ class FileListFragment : Fragment(), BreadcrumbLayout.Listener, FileListAdapter.
     // dual-pane), falling back to the generic title for the root. Callers that just observed a
     // path change should pass the new path so the title never reads a stale live-data value.
     private fun updateToolbarTitle(path: Path? = null) {
+        // The toolbar always shows the current directory name; when the path is not available
+        // yet, fall back to the file system root instead of the app name.
         val name = path?.name
-            ?: runCatching { activeViewModel.currentPath.name }.getOrDefault("")
-        binding.toolbar.title = name.ifEmpty { getString(R.string.file_list_title) }
+            ?: runCatching { activeViewModel.currentPath.name }.getOrDefault("/")
+        // Keep the activity title in sync so AppCompat's onTitleChanged (e.g. from onPostCreate
+        // which runs after the fragment's onActivityCreated) never overwrites the toolbar with
+        // the app name again.
+        requireActivity().title = name
+        binding.toolbar.title = name
     }
 
     private fun updateToolbarSubtitle() {
@@ -698,6 +929,11 @@ class FileListFragment : Fragment(), BreadcrumbLayout.Listener, FileListAdapter.
     }
 
     private fun onDualPaneChanged(enabled: Boolean) {
+        if (enabled) {
+            Settings.FILE_LIST_STORAGE_ANALYSIS.putValue(false)
+            // Dual pane and column view are mutually exclusive multi-pane layouts.
+            Settings.FILE_LIST_COLUMN_MODE.putValue(false)
+        }
         binding.dualPaneContainer?.isVisible = enabled
         binding.contentLayout.isVisible = !enabled
         updateToolbarSubtitle()
@@ -717,8 +953,6 @@ class FileListFragment : Fragment(), BreadcrumbLayout.Listener, FileListAdapter.
             }
             binding.breadcrumbLayout.setData(viewModel.breadcrumbLiveData.valueCompat)
         }
-        updateViewSortMenuItems()
-        updateSelectAllMenuItem()
         updateBottomToolbar()
         updateNavigateUpBackCallbackEnabled()
         updateOverlayToolbar()
@@ -795,24 +1029,240 @@ class FileListFragment : Fragment(), BreadcrumbLayout.Listener, FileListAdapter.
 
     private fun onPaneActivated(pane: FileListPaneFragment) {
         if (activePane !== pane) {
-            activePane = pane
-            DualPaneController.activePaneId = pane.paneId
-            updateActivePaneVisual()
+            if (isColumnMode) {
+                ColumnController.activeColumnIndex = pane.paneId
+            } else {
+                DualPaneController.activePaneId = pane.paneId
+            }
+            activatePane(pane)
+        }
+    }
+
+    private fun activatePane(pane: FileListPaneFragment) {
+        activePane = pane
+        updateActivePaneVisual()
+        if (isColumnMode) {
+            // In column mode the address bar shows the whole trail and only follows the scroll
+            // offset of the column container.
+            updateToolbarTitle(
+                runCatching { pane.viewModelOrNull?.currentPath }.getOrNull()
+            )
+        } else {
             updateTopBreadcrumbForActivePane()
-            updateViewSortMenuItems()
-            updateBottomToolbar()
-            updateNavigateUpBackCallbackEnabled()
             updateToolbarTitle(
                 pane.breadcrumbDataOrNull?.let { it.paths.getOrNull(it.selectedIndex) }
             )
-            updateToolbarSubtitle()
-            updateOverlayToolbar()
+        }
+        updateBottomToolbar()
+        updateNavigateUpBackCallbackEnabled()
+        updateToolbarSubtitle()
+        updateOverlayToolbar()
+    }
+
+    private fun onColumnModeChanged(enabled: Boolean) {
+        if (enabled) {
+            Settings.FILE_LIST_STORAGE_ANALYSIS.putValue(false)
+            Settings.FILE_LIST_DUAL_PANE.putValue(false)
+            if (overlayActionMode.isActive) {
+                overlayActionMode.finish()
+            }
+            // Columns always use the list layout.
+            viewModel.viewType = FileViewType.LIST
+            binding.columnPaneContainer?.isVisible = true
+            binding.contentLayout.isVisible = false
+            binding.breadcrumbLayout.columnMode = true
+            renderColumns(runCatching { viewModel.breadcrumbLiveData.valueCompat.paths }.getOrNull())
+        } else {
+            teardownColumns()
+            binding.columnPaneContainer?.isVisible = false
+            binding.breadcrumbLayout.columnMode = false
+            if (!isDualPane) {
+                binding.contentLayout.isVisible = true
+                binding.breadcrumbLayout.setData(viewModel.breadcrumbLiveData.valueCompat)
+            }
+        }
+        updateToolbarTitle()
+        updateToolbarSubtitle()
+        updateBottomToolbar()
+        updateNavigateUpBackCallbackEnabled()
+        updateOverlayToolbar()
+    }
+
+    // Makes the column at the given index the active one and brings it into view; the address
+    // bar follows through the 1:1 scroll sync.
+    private fun activateColumn(index: Int) {
+        val pane = columnPanes.getOrNull(index) ?: return
+        binding.columnPaneContainer?.smoothScrollTo(
+            index * resources.getDimensionPixelSize(R.dimen.file_list_column_width), 0
+        )
+        if (activePane !== pane) {
+            ColumnController.activeColumnIndex = index
+            activatePane(pane)
+        }
+    }
+
+    private fun onBreadcrumbColumnItemTapped(index: Int) {
+        activateColumn(index)
+    }
+
+    // Renders one column per trail path: existing columns whose path is unchanged are kept,
+    // deeper columns are removed and new ones are appended, then the container scrolls to the
+    // deepest column.
+    private fun renderColumns(paths: List<Path>?) {
+        val container = binding.columnPaneContainer ?: return
+        val row = binding.columnPaneRow ?: return
+        if (paths == null) {
+            return
+        }
+        while (columnPanes.size > paths.size) {
+            removeColumnAt(columnPanes.size - 1)
+        }
+        for (index in paths.indices) {
+            val path = paths[index]
+            if (columnPanes.getOrNull(index) != null && columnPaths.getOrNull(index) == path) {
+                continue
+            }
+            if (columnPanes.getOrNull(index) != null) {
+                removeColumnAt(index)
+            }
+            addColumnAt(index, path)
+        }
+        if (activePane == null || columnPanes.none { it === activePane }) {
+            activePane = columnPanes.lastOrNull()
+            ColumnController.activeColumnIndex = columnPanes.size - 1
+            updateActivePaneVisual()
+        }
+        container.post {
+            val lastChild = row.getChildAt(row.childCount - 1) ?: return@post
+            container.smoothScrollTo(lastChild.right, 0)
+        }
+        updateToolbarTitle()
+        updateToolbarSubtitle()
+        updateNavigateUpBackCallbackEnabled()
+    }
+
+    private fun addColumnAt(index: Int, path: Path) {
+        val container = binding.columnPaneContainer ?: return
+        val row = binding.columnPaneRow ?: return
+        val containerId = View.generateViewId()
+        val columnContainer = FragmentContainerView(requireContext()).apply {
+            id = containerId
+        }
+        val columnWidth = resources.getDimensionPixelSize(R.dimen.file_list_column_width)
+        row.addView(
+            columnContainer, index,
+            LinearLayout.LayoutParams(columnWidth, ViewGroup.LayoutParams.MATCH_PARENT)
+        )
+        columnContainerIds.add(index, containerId)
+        columnPaths.add(index, path)
+        val pane = FileListPaneFragment()
+        pane.paneId = index
+        pane.columnMode = true
+        columnPanes.add(index, pane)
+        ColumnController.register(index, pane)
+        childFragmentManager.commit {
+            add(containerId, pane)
+        }
+        pane.initialize(path)
+        pane.columnExpandListener = { clicked -> expandColumnFrom(pane, clicked) }
+        pane.activeChangedListener = ::onPaneActivated
+        pane.subtitleListener = {
+            if (isColumnMode && activePane === pane) {
+                updateToolbarSubtitle()
+            }
+        }
+        pane.selectionListener = { _ ->
+            if (isColumnMode && activePane === pane) {
+                updateOverlayToolbar()
+            }
+        }
+        // Cross-column drag and drop: dropping onto a directory row of this column offers the
+        // move/copy choice, exactly like the single-pane list drag.
+        pane.viewLifecycleOwnerLiveData.observe(this) { owner ->
+            if (owner != null) {
+                pane.paneRecyclerViewOrNull?.setOnDragListener { _, event ->
+                    handleColumnDragEvent(pane, event)
+                }
+            }
+        }
+    }
+
+    private fun removeColumnAt(index: Int) {
+        val pane = columnPanes.getOrNull(index) ?: return
+        val containerId = columnContainerIds.getOrNull(index) ?: return
+        childFragmentManager.commit {
+            remove(pane)
+        }
+        binding.columnPaneRow?.let { row ->
+            row.findViewById<View>(containerId)?.let { row.removeView(it) }
+        }
+        columnPanes.removeAt(index)
+        columnContainerIds.removeAt(index)
+        columnPaths.removeAt(index)
+        ColumnController.unregister(index)
+        if (activePane === pane) {
+            activePane = null
+        }
+    }
+
+    private fun teardownColumns() {
+        if (columnPanes.isEmpty()) {
+            ColumnController.clear()
+            return
+        }
+        childFragmentManager.commit {
+            for (pane in columnPanes) {
+                remove(pane)
+            }
+        }
+        binding.columnPaneRow?.removeAllViews()
+        columnPanes.clear()
+        columnContainerIds.clear()
+        columnPaths.clear()
+        ColumnController.clear()
+        if (activePane != null && leftPane == null && rightPane == null) {
+            activePane = null
+        }
+    }
+
+    // Expands the trail with a directory tapped in the given column: the trail is truncated
+    // after that column and the directory is appended, which re-renders the deeper columns.
+    private fun expandColumnFrom(pane: FileListPaneFragment, path: Path) {
+        val state = pane.saveScrollState() ?: layoutManager.onSaveInstanceState()!!
+        viewModel.navigateTo(state, path)
+    }
+
+    private fun handleColumnDragEvent(pane: FileListPaneFragment, event: DragEvent): Boolean {
+        return when (event.action) {
+            // Accepting drag-location events is required for this view to receive ACTION_DROP.
+            DragEvent.ACTION_DRAG_LOCATION -> ColumnController.draggingFile != null
+            DragEvent.ACTION_DROP -> {
+                val file = ColumnController.draggingFile ?: return false
+                ColumnController.draggingFile = null
+                val targetDirectory = pane.findColumnDropTargetDirectory(event, file)
+                    ?: return false
+                pendingSinglePaneDrag = PendingSinglePaneDrag(file, targetDirectory)
+                MoveCopyDialogFragment.show(this)
+                true
+            }
+            DragEvent.ACTION_DRAG_ENDED -> {
+                // A handled drop clears the source above; a cancelled drag ends here.
+                ColumnController.draggingFile = null
+                true
+            }
+            else -> false
         }
     }
 
     private fun updateActivePaneVisual() {
-        leftPane?.setActive(activePane === leftPane)
-        rightPane?.setActive(activePane === rightPane)
+        if (isColumnMode) {
+            for (pane in columnPanes) {
+                pane.setActive(activePane === pane)
+            }
+        } else {
+            leftPane?.setActive(activePane === leftPane)
+            rightPane?.setActive(activePane === rightPane)
+        }
     }
 
     private fun onPanePasteStateChanged() {
@@ -874,11 +1324,11 @@ class FileListFragment : Fragment(), BreadcrumbLayout.Listener, FileListAdapter.
         pendingSinglePaneDrag = null
         when (result) {
             MoveCopyDialogFragment.RESULT_MOVE -> {
-                viewModel.addToPasteState(false, fileItemSetOf(pending.file))
+                activeViewModel.addToPasteState(false, fileItemSetOf(pending.file))
                 pasteFiles(pending.targetDirectory)
             }
             MoveCopyDialogFragment.RESULT_COPY -> {
-                viewModel.addToPasteState(true, fileItemSetOf(pending.file))
+                activeViewModel.addToPasteState(true, fileItemSetOf(pending.file))
                 pasteFiles(pending.targetDirectory)
             }
             else -> {}
@@ -890,37 +1340,95 @@ class FileListFragment : Fragment(), BreadcrumbLayout.Listener, FileListAdapter.
         val targetDirectory: Path
     )
 
-    private fun getSubtitle(files: List<FileItem>): String {
+    private fun getSubtitle(files: List<FileItem>): CharSequence {
         val directoryCount = files.count { it.attributes.isDirectory }
         val fileCount = files.size - directoryCount
-        val directoryCountText = if (directoryCount > 0) {
-            getQuantityString(
-                R.plurals.file_list_subtitle_directory_count_format, directoryCount, directoryCount
-            )
-        } else {
-            null
+        if (directoryCount == 0 && fileCount == 0) {
+            return getString(R.string.empty)
         }
-        val fileCountText = if (fileCount > 0) {
-            getQuantityString(
-                R.plurals.file_list_subtitle_file_count_format, fileCount, fileCount
-            )
-        } else {
-            null
+        val builder = SpannableStringBuilder()
+        if (directoryCount > 0) {
+            appendIconCount(builder, R.drawable.directory_icon_white_24dp, directoryCount)
         }
-        return when {
-            !directoryCountText.isNullOrEmpty() && !fileCountText.isNullOrEmpty() ->
-                (directoryCountText + getString(R.string.file_list_subtitle_separator)
-                    + fileCountText)
-            !directoryCountText.isNullOrEmpty() -> directoryCountText
-            !fileCountText.isNullOrEmpty() -> fileCountText
-            else -> getString(R.string.empty)
+        if (directoryCount > 0 && fileCount > 0) {
+            builder.append(' ')
+        }
+        if (fileCount > 0) {
+            appendIconCount(builder, R.drawable.file_icon_white_24dp, fileCount)
+        }
+        if (isStorageAnalysisActive && !viewModel.searchState.isSearching) {
+            builder.append(' ')
+            val sizeText = storageAnalysisTotal?.let {
+                it.asFileSize().formatHumanReadable(requireContext())
+            } ?: getString(R.string.file_item_storage_analysis_computing)
+            appendIconText(
+                builder, R.drawable.pie_chart_icon_control_normal_24dp, sizeText
+            )
+        }
+        return builder
+    }
+
+    // Appends "[icon]text" using an inline image span so the subtitle stays compact; the icon is
+    // tinted with the secondary text color to match the subtitle text.
+    private fun appendIconText(
+        builder: SpannableStringBuilder,
+        iconRes: Int,
+        text: CharSequence
+    ) {
+        val drawable = requireContext().getDrawableCompat(iconRes).mutate()
+        val iconSize = (14 * resources.displayMetrics.density).roundToInt()
+        drawable.setTint(
+            MaterialColors.getColor(
+                binding.toolbar, android.R.attr.textColorSecondary, Color.WHITE
+            )
+        )
+        drawable.setBounds(0, 0, iconSize, iconSize)
+        val start = builder.length
+        builder.append('\uFFFC')
+        builder.setSpan(
+            CenterVerticalImageSpan(drawable),
+            start, start + 1, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
+        )
+        builder.append(text)
+    }
+
+    private fun appendIconCount(builder: SpannableStringBuilder, iconRes: Int, count: Int) {
+        appendIconText(builder, iconRes, count.toString())
+    }
+
+    // ImageSpan that vertically centers the drawable against the surrounding text, so the inline
+    // count icons line up with the digits instead of sitting on the baseline.
+    private class CenterVerticalImageSpan(drawable: Drawable) :
+        ImageSpan(drawable, ALIGN_BOTTOM) {
+        override fun draw(
+            canvas: Canvas,
+            text: CharSequence?,
+            start: Int,
+            end: Int,
+            x: Float,
+            top: Int,
+            y: Int,
+            bottom: Int,
+            paint: Paint
+        ) {
+            val drawable = drawable
+            val rect = drawable.bounds
+            canvas.save()
+            val fontMetrics = paint.fontMetricsInt
+            val textCenterY = y + (fontMetrics.ascent + fontMetrics.descent) / 2f
+            val drawableCenterY = rect.height() / 2f
+            canvas.translate(x, textCenterY - drawableCenterY)
+            drawable.draw(canvas)
+            canvas.restore()
         }
     }
 
     private fun onViewTypeChanged(viewType: FileViewType) {
+        if (viewType != FileViewType.LIST && Settings.FILE_LIST_STORAGE_ANALYSIS.valueCompat) {
+            Settings.FILE_LIST_STORAGE_ANALYSIS.putValue(false)
+        }
         updateSpanCount()
         adapter.viewType = viewType
-        updateViewSortMenuItems()
     }
 
     private fun updateSpanCount() {
@@ -932,60 +1440,33 @@ class FileListFragment : Fragment(), BreadcrumbLayout.Listener, FileListAdapter.
 
     private fun onSortOptionsChanged(sortOptions: FileSortOptions) {
         adapter.sortOptions = sortOptions
-        updateViewSortMenuItems()
     }
 
     private fun onViewSortPathSpecificChanged(pathSpecific: Boolean) {
-        updateViewSortMenuItems()
-    }
-
-    private fun updateViewSortMenuItems() {
-        if (!this::menuBinding.isInitialized) {
-            return
-        }
-        val searchViewExpanded = viewModel.isSearchViewExpanded
-        menuBinding.viewSortItem.isVisible = !searchViewExpanded
-        if (searchViewExpanded) {
-            return
-        }
-        val viewType = activeViewModel.viewType
-        // The view mode is a three-way radio choice: single-column list, dual panes, or
-        // single-column grid; dual panes takes precedence over the item layout when active.
-        // Uncheck all three first so the exclusive group never ends up with a stale selection.
-        menuBinding.viewListItem.isChecked = false
-        menuBinding.viewDualItem.isChecked = false
-        menuBinding.viewGridItem.isChecked = false
-        val checkedViewItem = if (isDualPane) {
-            menuBinding.viewDualItem
-        } else if (viewType == FileViewType.LIST) {
-            menuBinding.viewListItem
-        } else {
-            menuBinding.viewGridItem
-        }
-        checkedViewItem.isChecked = true
-        menuBinding.viewDualItem.isVisible = viewModel.pickOptions == null
-        val sortOptions = activeViewModel.sortOptions
-        val checkedSortByItem = when (sortOptions.by) {
-            By.NAME -> menuBinding.sortByNameItem
-            By.TYPE -> menuBinding.sortByTypeItem
-            By.SIZE -> menuBinding.sortBySizeItem
-            By.LAST_MODIFIED -> menuBinding.sortByLastModifiedItem
-        }
-        checkedSortByItem.isChecked = true
-        menuBinding.sortOrderAscendingItem.isChecked = sortOptions.order == Order.ASCENDING
-        menuBinding.sortDirectoriesFirstItem.isChecked = sortOptions.isDirectoriesFirst
-        menuBinding.viewSortPathSpecificItem.isChecked = activeViewModel.isViewSortPathSpecific
     }
 
     private fun navigateUp() {
         collapseSearchView()
+        if (isColumnMode) {
+            // Back in column view: from a non-root column it steps back to the previous column;
+            // from the root column it navigates up (removing the deepest column).
+            val activeIndex = ColumnController.activeColumnIndex
+            if (activeIndex > 0) {
+                activateColumn(activeIndex - 1)
+                return
+            }
+        }
         activeViewModel.navigateUp()
     }
 
     // The back gesture navigates the active pane up in dual-pane mode, or this fragment's own view
     // model in single-pane mode; it is only enabled while there is somewhere to go up to.
     private fun updateNavigateUpBackCallbackEnabled() {
-        navigateUpBackCallback?.isEnabled = activeViewModel.canNavigateUpBreadcrumb
+        navigateUpBackCallback?.isEnabled = if (isColumnMode) {
+            columnPanes.size > 1
+        } else {
+            activeViewModel.canNavigateUpBreadcrumb
+        }
     }
 
     private fun showNavigateToPathDialog() {
@@ -1004,9 +1485,138 @@ class FileListFragment : Fragment(), BreadcrumbLayout.Listener, FileListAdapter.
         Settings.FILE_LIST_SHOW_HIDDEN_FILES.putValue(showHiddenFiles)
     }
 
+    private fun toggleStorageAnalysis() {
+        Settings.FILE_LIST_STORAGE_ANALYSIS.putValue(
+            !Settings.FILE_LIST_STORAGE_ANALYSIS.valueCompat
+        )
+    }
+
+    private fun onStorageAnalysisChanged(enabled: Boolean) {
+        if (enabled) {
+            // Storage analysis only applies to the single-column list.
+            Settings.FILE_LIST_DUAL_PANE.putValue(false)
+            Settings.FILE_LIST_COLUMN_MODE.putValue(false)
+            viewModel.viewType = FileViewType.LIST
+        } else {
+            storageAnalysisComputer.cancel()
+            storageAnalysisTotal = null
+            isStorageAnalysisComputing = false
+            adapter.setStorageAnalysisEnabled(false)
+        }
+        updateToolbarSubtitle()
+        updateStorageAnalysisIndicator()
+        if (enabled) {
+            startStorageAnalysisIfEnabled()
+        }
+    }
+
+    // Whether the current path is /storage/emulated/<user>/<subdirectory> (or deeper): the
+    // internal shared storage root itself (three path components) is excluded, so each user's
+    // whole shared space is never scanned as a single walk.
+    private fun isEmulatedUserSubdirectory(path: Path): Boolean {
+        if (path.nameCount < 4) {
+            return false
+        }
+        return path.getName(0).toString() == "storage" &&
+            path.getName(1).toString() == "emulated"
+    }
+
+    private fun isStorageAnalysisPathAllowed(path: Path): Boolean {
+        // Remote paths (SMB/FTP/SFTP/WebDAV/non-local document) are gated by their own toggle,
+        // orthogonal to the local-path gate below, since walking them costs network round trips.
+        if (path.isRemotePath) {
+            return Settings.FILE_LIST_STORAGE_ANALYSIS_REMOTE_DIRECTORIES.valueCompat
+        }
+        if (!Settings.FILE_LIST_STORAGE_ANALYSIS_ONLY_USER_SUBDIRECTORIES.valueCompat) {
+            return true
+        }
+        return isEmulatedUserSubdirectory(path)
+    }
+
+    // Whether the analysis display is actually active: the toggle is on and the current path
+    // passes the "only user subdirectories" gate.
+    private val isStorageAnalysisActive: Boolean
+        get() {
+            if (!Settings.FILE_LIST_STORAGE_ANALYSIS.valueCompat) {
+                return false
+            }
+            val path = runCatching { viewModel.currentPath }.getOrNull() ?: return false
+            return isStorageAnalysisPathAllowed(path)
+        }
+
+    private fun startStorageAnalysisIfEnabled() {
+        val enabled = isStorageAnalysisActive
+        if (adapter.storageAnalysisEnabled != enabled) {
+            adapter.setStorageAnalysisEnabled(enabled)
+        }
+        if (!enabled) {
+            storageAnalysisComputer.cancel()
+            storageAnalysisTotal = null
+            isStorageAnalysisComputing = false
+            updateStorageAnalysisIndicator()
+            updateToolbarSubtitle()
+            return
+        }
+        val stateful = runCatching { viewModel.fileListStateful }.getOrNull() ?: return
+        val files = stateful.value
+        if (files.isNullOrEmpty() || viewModel.searchState.isSearching) {
+            return
+        }
+        storageAnalysisTotal = null
+        isStorageAnalysisComputing = true
+        adapter.updateStorageAnalysisSizes(emptyMap(), 0)
+        updateStorageAnalysisIndicator()
+        updateToolbarSubtitle()
+        storageAnalysisComputer.start(viewModel.currentPath, storageAnalysisListener)
+    }
+
+    private val storageAnalysisListener = object : StorageAnalysisComputer.Listener {
+        override fun onSizes(childSizes: Map<Path, Long>, total: Long, complete: Boolean) {
+            if (!isStorageAnalysisActive) {
+                return
+            }
+            if (complete) {
+                storageAnalysisTotal = total
+                isStorageAnalysisComputing = false
+            } else if (storageAnalysisTotal != null) {
+                // Keep the toolbar subtitle on its "calculating" placeholder until the walk is
+                // done instead of showing the growing partial total.
+                storageAnalysisTotal = null
+            }
+            adapter.updateStorageAnalysisSizes(childSizes, total)
+            if (complete) {
+                // Only reorder once the real sizes are all known so the list doesn't jump while
+                // the walk is still in progress.
+                adapter.sortByStorageAnalysisSizes()
+                updateStorageAnalysisIndicator()
+                // Reset the viewport to the top so the largest items are visible after the
+                // re-sort, otherwise the list stays anchored around the previous viewport.
+                binding.recyclerView.post { binding.recyclerView.scrollToPosition(0) }
+            }
+            updateToolbarSubtitle()
+        }
+    }
+
+    // Reflects the storage analysis state in the breadcrumb bar indicator: hidden when the toggle
+    // is off, a dimmed pie chart when it doesn't apply to the current path, an indeterminate
+    // spinner while computing, and a full pie chart when done.
+    private fun updateStorageAnalysisIndicator() {
+        val analysisOn = Settings.FILE_LIST_STORAGE_ANALYSIS.valueCompat
+        binding.storageAnalysisIndicator.isVisible = analysisOn
+        if (!analysisOn) {
+            return
+        }
+        val applicable = isStorageAnalysisActive
+        val computing = isStorageAnalysisComputing
+        binding.storageAnalysisProgress.isVisible = applicable && computing
+        binding.storageAnalysisIcon.isVisible = !binding.storageAnalysisProgress.isVisible
+        // A dimmed icon means the analysis is on but doesn't apply to the current path.
+        binding.storageAnalysisIcon.alpha = if (applicable) 1f else 0.38f
+    }
+
     private fun onShowHiddenFilesChanged(showHiddenFiles: Boolean) {
         updateAdapterFileList()
-        updateShowHiddenFilesMenuItem()
+        startStorageAnalysisIfEnabled()
     }
 
     private fun updateAdapterFileList() {
@@ -1015,14 +1625,6 @@ class FileListFragment : Fragment(), BreadcrumbLayout.Listener, FileListAdapter.
             files = files.filterNot { it.isHidden }
         }
         adapter.replaceListAndIsSearching(files, viewModel.searchState.isSearching)
-    }
-
-    private fun updateShowHiddenFilesMenuItem() {
-        if (!this::menuBinding.isInitialized) {
-            return
-        }
-        val showHiddenFiles = Settings.FILE_LIST_SHOW_HIDDEN_FILES.valueCompat
-        menuBinding.showHiddenFilesItem.isChecked = showHiddenFiles
     }
 
     private fun share() {
@@ -1044,6 +1646,16 @@ class FileListFragment : Fragment(), BreadcrumbLayout.Listener, FileListAdapter.
 
     override fun navigateTo(path: Path) {
         collapseSearchView()
+        if (isColumnMode) {
+            // Tapping an address bar entry activates and scrolls to that column instead of
+            // navigating (which would truncate the deeper columns).
+            val data = runCatching { viewModel.breadcrumbLiveData.valueCompat }.getOrNull()
+            val index = data?.paths?.indexOf(path) ?: -1
+            if (index >= 0) {
+                activateColumn(index)
+            }
+            return
+        }
         if (isDualPane) {
             activePane?.navigateToPath(path)
             return
@@ -1063,32 +1675,29 @@ class FileListFragment : Fragment(), BreadcrumbLayout.Listener, FileListAdapter.
     }
 
     private fun onPickOptionsChanged(pickOptions: PickOptions?) {
-        val title = if (pickOptions == null) {
-            getString(R.string.file_list_title)
-        } else {
+        if (pickOptions != null && Settings.FILE_LIST_STORAGE_ANALYSIS.valueCompat) {
+            Settings.FILE_LIST_STORAGE_ANALYSIS.putValue(false)
+        }
+        if (pickOptions != null && Settings.FILE_LIST_COLUMN_MODE.valueCompat) {
+            // Picking files only applies to the single-column list.
+            Settings.FILE_LIST_COLUMN_MODE.putValue(false)
+        }
+        if (pickOptions != null) {
+            // Only pick modes set the window title; the normal browsing toolbar title is driven
+            // by updateToolbarTitle() and would be overwritten by the activity title sync.
             val count = if (pickOptions.allowMultiple) Int.MAX_VALUE else 1
-            when (pickOptions.mode) {
+            val title = when (pickOptions.mode) {
                 PickOptions.Mode.OPEN_FILE ->
                     getQuantityString(R.plurals.file_list_title_open_file, count)
                 PickOptions.Mode.CREATE_FILE -> getString(R.string.file_list_title_create_file)
                 PickOptions.Mode.OPEN_DIRECTORY ->
                     getQuantityString(R.plurals.file_list_title_open_directory, count)
             }
+            requireActivity().title = title
         }
-        requireActivity().title = title
-        updateSelectAllMenuItem()
         updateOverlayToolbar()
         updateBottomToolbar()
         adapter.pickOptions = pickOptions
-    }
-
-    private fun updateSelectAllMenuItem() {
-        if (!this::menuBinding.isInitialized) {
-            return
-        }
-        val pickOptions = viewModel.pickOptions
-        menuBinding.selectAllItem.isVisible =
-            pickOptions == null || pickOptions.allowMultiple
     }
 
     private fun pickFiles(files: FileItemSet) {
@@ -1173,10 +1782,6 @@ class FileListFragment : Fragment(), BreadcrumbLayout.Listener, FileListAdapter.
                     }
                 )
             menu.findItem(R.id.action_delete).isVisible = !isAnyFileReadOnly
-            val areAllFilesArchiveFiles = files.all { it.isArchiveFile }
-            menu.findItem(R.id.action_extract).isVisible = areAllFilesArchiveFiles
-            val isCurrentPathReadOnly = activeViewModel.currentPath.fileSystem.isReadOnly
-            menu.findItem(R.id.action_archive).isVisible = !isCurrentPathReadOnly
         }
         if (!overlayActionMode.isActive) {
             binding.appBarLayout.setExpanded(true)
@@ -1218,20 +1823,8 @@ class FileListFragment : Fragment(), BreadcrumbLayout.Listener, FileListAdapter.
                 confirmDeleteFiles(activeSelectedFiles)
                 true
             }
-            R.id.action_extract -> {
-                extractFiles(activeSelectedFiles)
-                true
-            }
-            R.id.action_archive -> {
-                showCreateArchiveDialog(activeSelectedFiles)
-                true
-            }
-            R.id.action_share -> {
-                shareFiles(activeSelectedFiles)
-                true
-            }
-            R.id.action_select_all -> {
-                selectAllFiles()
+            R.id.action_select_overflow -> {
+                showSelectionOverflowMenu()
                 true
             }
             else -> false
@@ -1304,7 +1897,7 @@ class FileListFragment : Fragment(), BreadcrumbLayout.Listener, FileListAdapter.
     }
 
     private fun selectAllFiles() {
-        if (isDualPane) {
+        if (isPaneMode) {
             activePane?.selectAllFiles()
         } else {
             adapter.selectAllFiles()
@@ -1468,7 +2061,7 @@ class FileListFragment : Fragment(), BreadcrumbLayout.Listener, FileListAdapter.
     private fun makePathListForJob(files: FileItemSet): List<Path> =
         files.map { it.path }.sortedBy { it.toUri() }
 
-    private fun onFileNameEllipsizeChanged(fileNameEllipsize: TextUtils.TruncateAt) {
+    private fun onFileNameEllipsizeChanged(fileNameEllipsize: FileNameEllipsize) {
         adapter.nameEllipsize = fileNameEllipsize
     }
 
@@ -1949,8 +2542,13 @@ class FileListFragment : Fragment(), BreadcrumbLayout.Listener, FileListAdapter.
         val toolbar: Toolbar,
         val overlayToolbar: Toolbar,
         val breadcrumbLayout: BreadcrumbLayout,
+        val storageAnalysisIndicator: View,
+        val storageAnalysisIcon: ImageView,
+        val storageAnalysisProgress: ProgressBar,
         val contentLayout: ViewGroup,
         val dualPaneContainer: LinearLayout?,
+        val columnPaneContainer: HorizontalScrollView?,
+        val columnPaneRow: LinearLayout?,
         val progress: ProgressBar,
         val errorText: TextView,
         val emptyView: View,
@@ -1978,8 +2576,13 @@ class FileListFragment : Fragment(), BreadcrumbLayout.Listener, FileListAdapter.
                     bindingRoot, includeBinding.drawerLayout, includeBinding.persistentDrawerLayout,
                     includeBinding.persistentBarLayout, appBarBinding.appBarLayout,
                     appBarBinding.toolbar, appBarBinding.overlayToolbar,
-                    appBarBinding.breadcrumbLayout, contentBinding.contentLayout,
+                    appBarBinding.breadcrumbLayout,
+                    appBarBinding.storageAnalysisIndicator, appBarBinding.storageAnalysisIcon,
+                    appBarBinding.storageAnalysisProgress,
+                    contentBinding.contentLayout,
                     includeBinding.dualPaneContainer,
+                    includeBinding.columnPaneContainer,
+                    includeBinding.columnPaneRow,
                     contentBinding.progress, contentBinding.errorText, contentBinding.emptyView,
                     contentBinding.swipeRefreshLayout, contentBinding.recyclerView,
                     bottomBarBinding.bottomBarLayout, bottomBarBinding.bottomToolbar,
@@ -1992,36 +2595,13 @@ class FileListFragment : Fragment(), BreadcrumbLayout.Listener, FileListAdapter.
     private class MenuBinding private constructor(
         val menu: Menu,
         val searchItem: MenuItem,
-        val viewSortItem: MenuItem,
-        val viewListItem: MenuItem,
-        val viewDualItem: MenuItem,
-        val viewGridItem: MenuItem,
-        val sortByNameItem: MenuItem,
-        val sortByTypeItem: MenuItem,
-        val sortBySizeItem: MenuItem,
-        val sortByLastModifiedItem: MenuItem,
-        val sortOrderAscendingItem: MenuItem,
-        val sortDirectoriesFirstItem: MenuItem,
-        val viewSortPathSpecificItem: MenuItem,
-        val selectAllItem: MenuItem,
-        val showHiddenFilesItem: MenuItem
+        val viewSortItem: MenuItem
     ) {
         companion object {
             fun inflate(menu: Menu, inflater: MenuInflater): MenuBinding {
                 inflater.inflate(R.menu.file_list, menu)
                 return MenuBinding(
-                    menu, menu.findItem(R.id.action_search), menu.findItem(R.id.action_view_sort),
-                    menu.findItem(R.id.action_view_list), menu.findItem(R.id.action_view_dual),
-                    menu.findItem(R.id.action_view_grid),
-                    menu.findItem(R.id.action_sort_by_name),
-                    menu.findItem(R.id.action_sort_by_type),
-                    menu.findItem(R.id.action_sort_by_size),
-                    menu.findItem(R.id.action_sort_by_last_modified),
-                    menu.findItem(R.id.action_sort_order_ascending),
-                    menu.findItem(R.id.action_sort_directories_first),
-                    menu.findItem(R.id.action_view_sort_path_specific),
-                    menu.findItem(R.id.action_select_all),
-                    menu.findItem(R.id.action_show_hidden_files)
+                    menu, menu.findItem(R.id.action_search), menu.findItem(R.id.action_view_sort)
                 )
             }
         }

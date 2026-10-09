@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="horizontal"
+    android:gravity="center_vertical"
+    android:minHeight="48dp"
+    android:background="?selectableItemBackground"
+    android:layout_marginTop="16dp"
+    android:paddingStart="16dp"
+    android:paddingEnd="8dp">
+
+    <TextView
+        android:id="@android:id/title"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:textAppearance="?attr/textAppearanceTitleMedium"
+        android:textColor="?attr/colorPrimary" />
+
+    <ImageView
+        android:id="@+id/categoryChevron"
+        android:layout_width="24dp"
+        android:layout_height="24dp"
+        android:src="@drawable/arrow_end_icon_control_normal_24dp"
+        tools:ignore="ContentDescription" />
+</LinearLayout>

@@ -54,6 +54,27 @@
                             android:layout_height="match_parent"
                             android:layout_weight="1" />
                     </LinearLayout>
+
+                    <!-- Column view (Miller columns): horizontally scrolling container holding one
+                         fixed-width column per trail level; the address bar scrolls in 1:1
+                         lockstep with it (same item width, same start padding). -->
+                    <HorizontalScrollView
+                        android:id="@+id/columnPaneContainer"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:layout_gravity="top"
+                        android:scrollbars="none"
+                        android:clipToPadding="false"
+                        android:paddingStart="36dp"
+                        android:visibility="gone"
+                        app:layout_behavior="@string/appbar_scrolling_view_behavior">
+
+                        <LinearLayout
+                            android:id="@+id/columnPaneRow"
+                            android:layout_width="wrap_content"
+                            android:layout_height="match_parent"
+                            android:orientation="horizontal" />
+                    </HorizontalScrollView>
                 </androidx.coordinatorlayout.widget.CoordinatorLayout>
 
                 <include layout="@layout/file_list_fragment_bottom_bar_include" />

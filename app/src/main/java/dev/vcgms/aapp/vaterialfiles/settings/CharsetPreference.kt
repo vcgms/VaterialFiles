@@ -27,5 +27,6 @@ class CharsetPreference : ListPreference {
         val charsets = Charset.availableCharsets()
         entries = charsets.values.map { it.displayName() }.toTypedArray<CharSequence>()
         entryValues = charsets.keys.toTypedArray<CharSequence>()
+        summaryProvider = ListPreference.SimpleSummaryProvider.getInstance()
     }
 }

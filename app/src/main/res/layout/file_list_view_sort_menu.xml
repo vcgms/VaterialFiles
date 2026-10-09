@@ -1,0 +1,147 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:background="?attr/popupMenuBackground"
+    android:paddingTop="8dp"
+    android:paddingBottom="8dp">
+
+    <!-- View mode row: list / dual / grid. The selected one is rendered inverted. -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:paddingStart="4dp"
+        android:paddingEnd="4dp"
+        android:layout_marginBottom="4dp">
+
+        <ImageButton
+            android:id="@+id/vs_view_list"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:background="@null"
+            android:contentDescription="@string/file_list_action_view_list"
+            android:src="@drawable/view_list_icon_control_normal_24dp" />
+
+        <ImageButton
+            android:id="@+id/vs_view_dual"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:background="@null"
+            android:contentDescription="@string/file_list_action_view_dual"
+            android:src="@drawable/view_column_icon_control_normal_24dp" />
+
+        <ImageButton
+            android:id="@+id/vs_view_column"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:background="@null"
+            android:contentDescription="@string/file_list_action_view_column"
+            android:src="@drawable/view_split_icon_control_normal_24dp" />
+
+        <ImageButton
+            android:id="@+id/vs_view_grid"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:background="@null"
+            android:contentDescription="@string/file_list_action_view_grid"
+            android:src="@drawable/view_grid_icon_control_normal_24dp" />
+    </LinearLayout>
+
+    
+    <!-- Sort-by row: name / type / size / date. Mutually exclusive, selected inverted. -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:paddingStart="4dp"
+        android:paddingEnd="4dp"
+        android:layout_marginBottom="4dp">
+
+        <TextView
+            android:id="@+id/vs_sort_by_name"
+            android:layout_width="wrap_content"
+            android:layout_height="40dp"
+            android:gravity="center"
+            android:paddingStart="8dp"
+            android:paddingEnd="8dp"
+            android:clickable="true"
+            android:focusable="true"
+            android:text="@string/file_list_action_sort_by_name"
+            android:textAppearance="?textAppearanceBody2" />
+
+        <TextView
+            android:id="@+id/vs_sort_by_type"
+            android:layout_width="wrap_content"
+            android:layout_height="40dp"
+            android:gravity="center"
+            android:paddingStart="8dp"
+            android:paddingEnd="8dp"
+            android:clickable="true"
+            android:focusable="true"
+            android:text="@string/file_list_action_sort_by_type"
+            android:textAppearance="?textAppearanceBody2" />
+
+        <TextView
+            android:id="@+id/vs_sort_by_size"
+            android:layout_width="wrap_content"
+            android:layout_height="40dp"
+            android:gravity="center"
+            android:paddingStart="8dp"
+            android:paddingEnd="8dp"
+            android:clickable="true"
+            android:focusable="true"
+            android:text="@string/file_list_action_sort_by_size"
+            android:textAppearance="?textAppearanceBody2" />
+
+        <TextView
+            android:id="@+id/vs_sort_by_last_modified"
+            android:layout_width="wrap_content"
+            android:layout_height="40dp"
+            android:gravity="center"
+            android:paddingStart="8dp"
+            android:paddingEnd="8dp"
+            android:clickable="true"
+            android:focusable="true"
+            android:text="@string/file_list_action_sort_by_date"
+            android:textAppearance="?textAppearanceBody2" />
+    </LinearLayout>
+
+    <!-- Toggle row: ascending / directories first / path specific. On = inverted. -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:paddingStart="4dp"
+        android:paddingEnd="4dp">
+
+        <ImageButton
+            android:id="@+id/vs_sort_order_ascending"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:background="@null"
+            android:contentDescription="@string/file_list_action_sort_order_ascending"
+            android:src="@drawable/sort_order_ascending_icon_control_normal_24dp" />
+
+        <ImageButton
+            android:id="@+id/vs_sort_directories_first"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:background="@null"
+            android:contentDescription="@string/file_list_action_sort_directories_first"
+            android:src="@drawable/sort_directories_first_icon_control_normal_24dp" />
+
+        <ImageButton
+            android:id="@+id/vs_view_sort_path_specific"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:background="@null"
+            android:contentDescription="@string/file_list_action_view_sort_path_specific"
+            android:src="@drawable/sort_path_specific_icon_control_normal_24dp" />
+    </LinearLayout>
+</LinearLayout>

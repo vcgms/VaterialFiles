@@ -13,6 +13,14 @@
     <string name="pref_default_value_file_list_view_type">0</string>
     <string name="pref_key_file_list_dual_pane">key_file_list_dual_pane</string>
     <bool name="pref_default_value_file_list_dual_pane">false</bool>
+    <string name="pref_key_file_list_column_mode">key_file_list_column_mode</string>
+    <bool name="pref_default_value_file_list_column_mode">false</bool>
+    <string name="pref_key_file_list_storage_analysis">key_file_list_storage_analysis</string>
+    <bool name="pref_default_value_file_list_storage_analysis">false</bool>
+    <string name="pref_key_file_list_storage_analysis_only_user_subdirectories">key_file_list_storage_analysis_only_user_subdirectories</string>
+    <bool name="pref_default_value_file_list_storage_analysis_only_user_subdirectories">true</bool>
+    <string name="pref_key_file_list_storage_analysis_remote_directories">key_file_list_storage_analysis_remote_directories</string>
+    <bool name="pref_default_value_file_list_storage_analysis_remote_directories">false</bool>
     <string name="pref_key_file_list_grid_columns">key_file_list_grid_columns</string>
     <string name="pref_default_value_file_list_grid_columns">0</string>
     <string-array name="pref_entry_values_file_list_grid_columns">
@@ -39,6 +47,7 @@
     <string name="pref_key_ftp_server_writable">key_ftp_server_writable</string>
     <bool name="pref_default_value_ftp_server_writable">true</bool>
 
+    <string name="pref_key_settings_category_appearance">key_settings_category_appearance</string>
     <string name="pref_key_locale">key_locale</string>
     <string name="pref_key_theme_color">key_theme_color</string>
     <string name="pref_default_value_theme_color">0</string>
@@ -68,6 +77,7 @@
     <string name="pref_key_file_name_ellipsize">key_file_name_ellipsize</string>
     <string name="pref_default_value_file_name_ellipsize">1</string>
     <string-array name="pref_entry_values_file_name_ellipsize">
+        <item>4</item>
         <item>0</item>
         <item>1</item>
         <item>2</item>

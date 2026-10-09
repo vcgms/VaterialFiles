@@ -2,7 +2,7 @@ package dev.vcgms.aapp.vaterialfiles.filelist
 
 import android.os.Handler
 import android.os.Looper
-import android.text.TextUtils
+import android.content.Context
 import android.util.TypedValue
 import android.view.Menu
 import android.view.MotionEvent
@@ -20,15 +20,16 @@ import androidx.recyclerview.widget.RecyclerView
 import coil.dispose
 import coil.load
 import java8.nio.file.Path
+import kotlin.math.roundToInt
 import me.zhanghai.android.fastscroll.PopupTextProvider
 import dev.vcgms.aapp.vaterialfiles.R
 import dev.vcgms.aapp.vaterialfiles.coil.AppIconPackageName
 import dev.vcgms.aapp.vaterialfiles.compat.foregroundCompat
 import dev.vcgms.aapp.vaterialfiles.compat.getDrawableCompat
-import dev.vcgms.aapp.vaterialfiles.compat.isSingleLineCompat
 import dev.vcgms.aapp.vaterialfiles.databinding.FileItemGridBinding
 import dev.vcgms.aapp.vaterialfiles.databinding.FileItemListBinding
 import dev.vcgms.aapp.vaterialfiles.file.FileItem
+import dev.vcgms.aapp.vaterialfiles.file.asFileSize
 import dev.vcgms.aapp.vaterialfiles.file.fileSize
 import dev.vcgms.aapp.vaterialfiles.file.formatShort
 import dev.vcgms.aapp.vaterialfiles.file.iconRes
@@ -37,12 +38,17 @@ import dev.vcgms.aapp.vaterialfiles.provider.archive.isArchivePath
 import dev.vcgms.aapp.vaterialfiles.provider.common.isEncrypted
 import dev.vcgms.aapp.vaterialfiles.provider.common.newDirectoryStream
 import dev.vcgms.aapp.vaterialfiles.settings.Settings
+import dev.vcgms.aapp.vaterialfiles.settings.FileNameEllipsize
 import dev.vcgms.aapp.vaterialfiles.ui.AnimatedListAdapter
 import dev.vcgms.aapp.vaterialfiles.ui.CheckableForegroundLinearLayout
 import dev.vcgms.aapp.vaterialfiles.ui.CheckableItemBackground
+import dev.vcgms.aapp.vaterialfiles.ui.StorageAnalysisBar
+import dev.vcgms.aapp.vaterialfiles.util.asColor
+import dev.vcgms.aapp.vaterialfiles.util.getColorByAttr
 import dev.vcgms.aapp.vaterialfiles.util.isMaterial3Theme
 import dev.vcgms.aapp.vaterialfiles.util.layoutInflater
 import dev.vcgms.aapp.vaterialfiles.util.valueCompat
+import dev.vcgms.aapp.vaterialfiles.util.withModulatedAlpha
 import java.util.Locale
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executors
@@ -113,8 +119,8 @@ class FileListAdapter(
 
     private val filePositionMap = mutableMapOf<Path, Int>()
 
-    private lateinit var _nameEllipsize: TextUtils.TruncateAt
-    var nameEllipsize: TextUtils.TruncateAt
+    private lateinit var _nameEllipsize: FileNameEllipsize
+    var nameEllipsize: FileNameEllipsize
         get() = _nameEllipsize
         set(value) {
             _nameEllipsize = value
@@ -200,6 +206,8 @@ class FileListAdapter(
         val sortedList = if (!isSearching) list.sortedWith(sortOptions.createComparator()) else list
         directoryItemCountCache.clear()
         directoryItemCountPending.clear()
+        storageAnalysisSizes = emptyMap()
+        storageAnalysisTotal = 0
         super.replace(sortedList, clear)
         rebuildFilePositionMap()
     }
@@ -235,6 +243,9 @@ class FileListAdapter(
                     CheckableItemBackground.create(0f, 0f, context)
                 }
             }
+            storageAnalysisBar?.barColor = parent.context
+                .getColorByAttr(android.R.attr.textColorPrimary)
+                .asColor().withModulatedAlpha(STORAGE_ANALYSIS_BAR_ALPHA).value
             thumbnailOutlineView?.apply {
                 val context = context
                 if (context.isMaterial3Theme) {
@@ -298,27 +309,156 @@ class FileListAdapter(
     }
     private val mainHandler = Handler(Looper.getMainLooper())
 
+    // Whether the ncdu-style storage analysis display is active; the sizes of each child and the
+    // parent total are pushed in by the fragment as its background walk makes progress.
+    var storageAnalysisEnabled: Boolean = false
+        private set
+
+    private var storageAnalysisSizes: Map<Path, Long> = emptyMap()
+
+    private var storageAnalysisTotal: Long = 0
+
+    fun setStorageAnalysisEnabled(enabled: Boolean) {
+        if (storageAnalysisEnabled == enabled) {
+            return
+        }
+        storageAnalysisEnabled = enabled
+        if (enabled) {
+            notifyItemRangeChanged(0, itemCount, PAYLOAD_STORAGE_ANALYSIS)
+        } else {
+            storageAnalysisSizes = emptyMap()
+            storageAnalysisTotal = 0
+            if (!isSearching) {
+                // Restore the user's sort order after leaving the storage analysis display.
+                val sortedList = list.sortedWith(sortOptions.createComparator())
+                super.replace(sortedList, false)
+                rebuildFilePositionMap()
+            }
+            notifyItemRangeChanged(0, itemCount, PAYLOAD_STORAGE_ANALYSIS)
+        }
+    }
+
+    fun updateStorageAnalysisSizes(sizes: Map<Path, Long>, total: Long) {
+        if (!storageAnalysisEnabled) {
+            return
+        }
+        storageAnalysisSizes = sizes
+        storageAnalysisTotal = total
+        notifyItemRangeChanged(0, itemCount, PAYLOAD_STORAGE_ANALYSIS)
+    }
+
+    // Re-sorts the list by each item's actual size (recursive for directories) in descending
+    // order, called once the storage analysis walk has completed.
+    fun sortByStorageAnalysisSizes() {
+        if (!storageAnalysisEnabled || isSearching) {
+            return
+        }
+        val sortedList = list.sortedWith(storageAnalysisSizeComparator)
+        super.replace(sortedList, false)
+        rebuildFilePositionMap()
+    }
+
     override fun refresh() {
         directoryItemCountCache.clear()
         directoryItemCountPending.clear()
+        storageAnalysisSizes = emptyMap()
+        storageAnalysisTotal = 0
         super.refresh()
     }
 
-    private fun buildDirectoryDescription(
+    // Builds the item description line: modification time, then for directories the immediate
+    // item count, then when storage analysis is enabled the size and share of the parent total.
+    private fun buildDescription(
         descriptionText: TextView,
         file: FileItem,
-        itemCount: Int?
+        isDirectory: Boolean
     ): String {
         val context = descriptionText.context
-        val lastModificationTime = file.attributes.lastModifiedTime().toInstant()
-            .formatShort(context)
         val descriptionSeparator = context.getString(R.string.file_item_description_separator)
-        return if (itemCount != null) {
-            val itemCountText = context.resources.getQuantityString(
-                R.plurals.file_item_directory_item_count_format, itemCount, itemCount)
-            listOf(lastModificationTime, itemCountText).joinToString(descriptionSeparator)
+        val parts = mutableListOf<String>()
+        if (!isDirectory || !storageAnalysisEnabled) {
+            // Storage analysis hides the modification time for directories to make room for the
+            // item count, size and share; file rows keep it.
+            parts.add(
+                file.attributes.lastModifiedTime().toInstant().formatShort(context)
+            )
+        }
+        if (isDirectory) {
+            val itemCount = directoryItemCountCache[file.path]
+            if (itemCount != null) {
+                parts.add(
+                    context.resources.getQuantityString(
+                        R.plurals.file_item_directory_item_count_format, itemCount, itemCount
+                    )
+                )
+            }
+            if (storageAnalysisEnabled) {
+                val size = storageAnalysisSizes[file.path]
+                if (size != null) {
+                    parts.add(size.asFileSize().formatHumanReadable(context))
+                    appendStorageAnalysisPercentage(parts, context, size)
+                } else {
+                    parts.add(context.getString(R.string.file_item_storage_analysis_computing))
+                }
+            }
         } else {
-            lastModificationTime
+            parts.add(file.attributes.fileSize.formatHumanReadable(context))
+            if (storageAnalysisEnabled) {
+                appendStorageAnalysisPercentage(parts, context, file.attributes.fileSize.value)
+            }
+        }
+        return parts.joinToString(descriptionSeparator)
+    }
+
+    private fun appendStorageAnalysisPercentage(
+        parts: MutableList<String>,
+        context: Context,
+        size: Long
+    ) {
+        if (storageAnalysisTotal <= 0) {
+            return
+        }
+        val percent = (size.toDouble() * 100 / storageAnalysisTotal).roundToInt()
+        parts.add(context.getString(R.string.file_item_storage_analysis_percent_format, percent))
+    }
+
+    // The size an item contributes to the storage analysis display; files use their known
+    // attributes while directories wait for the background walk to finish their subtree.
+    private fun getStorageAnalysisSize(file: FileItem): Long? =
+        if (file.attributes.isDirectory) {
+            storageAnalysisSizes[file.path]
+        } else {
+            file.attributes.fileSize.value
+        }
+
+    // Sorts by actual size in descending order; directories whose walk is still pending count as
+    // zero so they sink to the bottom, and equal sizes fall back to the name.
+    private val storageAnalysisSizeComparator = Comparator<FileItem> { file1, file2 ->
+        val size1 = getStorageAnalysisSize(file1) ?: 0L
+        val size2 = getStorageAnalysisSize(file2) ?: 0L
+        val sizeComparison = size2.compareTo(size1)
+        if (sizeComparison != 0) {
+            sizeComparison
+        } else {
+            file1.name.compareTo(file2.name)
+        }
+    }
+
+    private fun updateStorageAnalysisViews(holder: ViewHolder, file: FileItem) {
+        holder.descriptionText?.let { descriptionText ->
+            descriptionText.text = buildDescription(
+                descriptionText, file, file.attributes.isDirectory
+            )
+        }
+        holder.storageAnalysisBar?.let { bar ->
+            val size = getStorageAnalysisSize(file)
+            if (size != null && storageAnalysisEnabled && storageAnalysisTotal > 0 && size > 0) {
+                bar.isVisible = true
+                bar.fraction = (size.toDouble() / storageAnalysisTotal).toFloat()
+            } else {
+                bar.isVisible = false
+                bar.fraction = 0f
+            }
         }
     }
 
@@ -330,8 +470,11 @@ class FileListAdapter(
                 directoryItemCountCache[path] = count
                 mainHandler.post {
                     if (holder.boundPath == path) {
-                        holder.descriptionText?.text =
-                            buildDirectoryDescription(holder.descriptionText!!, file, count)
+                        holder.descriptionText?.let { descriptionText ->
+                            descriptionText.text = buildDescription(
+                                descriptionText, file, file.attributes.isDirectory
+                            )
+                        }
                     }
                 }
             }
@@ -364,13 +507,27 @@ class FileListAdapter(
         val checked = file in selectedFiles
         holder.itemLayout.isChecked = checked
         holder.nameText.apply {
-            if (isSingleLineCompat) {
-                val nameEllipsize = nameEllipsize
-                ellipsize = nameEllipsize
-                isSelected = nameEllipsize == TextUtils.TruncateAt.MARQUEE
+            if (viewType == FileViewType.LIST) {
+                val mode = nameEllipsize
+                if (mode == FileNameEllipsize.MULTILINE) {
+                    // Multi-line mode shows the full name; the item grows in height as needed.
+                    isSingleLine = false
+                    maxLines = Int.MAX_VALUE
+                    ellipsize = null
+                    isSelected = false
+                } else {
+                    // Reset any multi-line state from view recycling before applying the mode.
+                    isSingleLine = true
+                    maxLines = 1
+                    ellipsize = mode.truncateAt
+                    isSelected = mode == FileNameEllipsize.MARQUEE
+                }
             }
         }
         if (payloads.isNotEmpty()) {
+            if (payloads.contains(PAYLOAD_STORAGE_ANALYSIS)) {
+                updateStorageAnalysisViews(holder, file)
+            }
             return
         }
         bindViewHolderAnimation(holder)
@@ -462,16 +619,7 @@ class FileListAdapter(
         }
         holder.nameText.text = file.name
         holder.boundPath = path
-        holder.descriptionText?.text = if (isDirectory) {
-            buildDirectoryDescription(holder.descriptionText!!, file, directoryItemCountCache[path])
-        } else {
-            val context = holder.descriptionText!!.context
-            val lastModificationTime = attributes.lastModifiedTime().toInstant()
-                .formatShort(context)
-            val size = attributes.fileSize.formatHumanReadable(context)
-            val descriptionSeparator = context.getString(R.string.file_item_description_separator)
-            listOf(lastModificationTime, size).joinToString(descriptionSeparator)
-        }
+        updateStorageAnalysisViews(holder, file)
         if (isDirectory && !directoryItemCountCache.containsKey(path)
             && directoryItemCountPending.add(path)) {
             loadDirectoryItemCount(holder, path, file)
@@ -752,10 +900,14 @@ class FileListAdapter(
     companion object {
         private val PAYLOAD_STATE_CHANGED = Any()
 
+        private val PAYLOAD_STORAGE_ANALYSIS = Any()
+
         private const val DENSE_NAME_TEXT_SP = 14f
         private const val DENSE_DESCRIPTION_TEXT_SP = 12f
         private const val DENSE_LIST_ICON_MARGIN_START_DP = 4f
         private const val DENSE_GRID_MARGIN_DP = 8f
+
+        private const val STORAGE_ANALYSIS_BAR_ALPHA = 0.08f
 
         private val CALLBACK = object : DiffUtil.ItemCallback<FileItem>() {
             override fun areItemsTheSame(oldItem: FileItem, newItem: FileItem): Boolean =
@@ -780,7 +932,8 @@ class FileListAdapter(
         val nameText: TextView,
         val descriptionText: TextView?,
         val menuButton: ImageButton,
-        val thumbnailContainer: View?
+        val thumbnailContainer: View?,
+        val storageAnalysisBar: StorageAnalysisBar?
     ) : RecyclerView.ViewHolder(root) {
         constructor(binding: FileItemListBinding) : this(
             binding.root,
@@ -796,7 +949,8 @@ class FileListAdapter(
             binding.nameText,
             binding.descriptionText,
             binding.menuButton,
-            null
+            null,
+            binding.storageAnalysisBar
         )
 
         constructor(binding: FileItemGridBinding) : this(
@@ -813,7 +967,8 @@ class FileListAdapter(
             binding.nameText,
             null,
             binding.menuButton,
-            binding.thumbnailContainer
+            binding.thumbnailContainer,
+            null
         )
 
         lateinit var popupMenu: PopupMenu

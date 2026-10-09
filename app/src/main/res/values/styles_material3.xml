@@ -66,10 +66,17 @@
 
     <style name="Widget.MaterialFiles.Material3.Toolbar" parent="Widget.Material3.Toolbar">
         <item name="android:minHeight">@dimen/file_list_toolbar_height</item>
-        <item name="contentInsetStartWithNavigation">56dp</item>
+        <item name="contentInsetStartWithNavigation">48dp</item>
+        <item name="toolbarNavigationButtonStyle">@style/Widget.MaterialFiles.Material3.Toolbar.NavigationButton</item>
         <item name="titleTextAppearance">@style/TextAppearance.MaterialFiles.Material3.ToolbarTitle</item>
-        <item name="titleMarginStart">4dp</item>
+        <item name="titleMarginStart">0dp</item>
         <item name="titleMarginEnd">4dp</item>
+    </style>
+
+    <!-- 48dp wide so the 24dp navigation icon centers on the same 24dp column as the file list
+         item icons. -->
+    <style name="Widget.MaterialFiles.Material3.Toolbar.NavigationButton" parent="Widget.Material3.Toolbar.Button.Navigation">
+        <item name="android:minWidth">48dp</item>
     </style>
 
     <style name="TextAppearance.MaterialFiles.Material3.ToolbarTitle" parent="TextAppearance.Material3.TitleLarge">

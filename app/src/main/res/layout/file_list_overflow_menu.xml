@@ -1,0 +1,285 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:background="?attr/popupMenuBackground"
+    android:paddingTop="8dp"
+    android:paddingBottom="8dp">
+
+    <!-- Top icon row: navigate up / refresh / select all / share. Fixed-size buttons keep the
+         horizontal gap between icons equal to the vertical gap used by the list rows below. -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:paddingStart="4dp"
+        android:paddingEnd="4dp"
+        android:layout_marginBottom="4dp">
+
+        <ImageButton
+            android:id="@+id/overflow_navigate_up"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:background="?selectableItemBackgroundBorderless"
+            android:contentDescription="@string/file_list_action_navigate_up"
+            android:src="@drawable/arrow_up_icon_control_normal_24dp" />
+
+        <ImageButton
+            android:id="@+id/overflow_refresh"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:background="?selectableItemBackgroundBorderless"
+            android:contentDescription="@string/refresh"
+            android:src="@drawable/refresh_icon_control_normal_24dp" />
+
+        <ImageButton
+            android:id="@+id/overflow_select_all"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:background="?selectableItemBackgroundBorderless"
+            android:contentDescription="@string/select_all"
+            android:src="@drawable/select_all_icon_control_normal_24dp" />
+
+        <ImageButton
+            android:id="@+id/overflow_share"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:background="?selectableItemBackgroundBorderless"
+            android:contentDescription="@string/share"
+            android:src="@drawable/share_icon_control_normal_24dp" />
+    </LinearLayout>
+
+    
+    <LinearLayout
+        android:id="@+id/overflow_new_task"
+        android:layout_width="match_parent"
+        android:layout_height="40dp"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:background="?selectableItemBackground"
+        android:clickable="true"
+        android:focusable="true"
+        android:paddingStart="12dp"
+        android:paddingEnd="12dp">
+
+        <ImageView
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:src="@drawable/new_task_icon_control_normal_24dp" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="12dp"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:text="@string/file_list_action_new_task"
+            android:textAppearance="?textAppearanceBody2" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/overflow_navigate_to"
+        android:layout_width="match_parent"
+        android:layout_height="40dp"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:background="?selectableItemBackground"
+        android:clickable="true"
+        android:focusable="true"
+        android:paddingStart="12dp"
+        android:paddingEnd="12dp">
+
+        <ImageView
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:src="@drawable/arrow_end_icon_control_normal_24dp" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="12dp"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:text="@string/file_list_action_navigate_to"
+            android:textAppearance="?textAppearanceBody2" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/overflow_show_hidden_files"
+        android:layout_width="match_parent"
+        android:layout_height="40dp"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:background="?selectableItemBackground"
+        android:clickable="true"
+        android:focusable="true"
+        android:paddingStart="12dp"
+        android:paddingEnd="12dp">
+
+        <ImageView
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:src="@drawable/visibility_icon_control_normal_24dp" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="12dp"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:text="@string/file_list_action_show_hidden_files"
+            android:textAppearance="?textAppearanceBody2" />
+
+        <ImageView
+            android:id="@+id/overflow_show_hidden_check"
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:visibility="gone"
+            android:src="@drawable/check_icon_control_normal_24dp" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/overflow_storage_analysis"
+        android:layout_width="match_parent"
+        android:layout_height="40dp"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:background="?selectableItemBackground"
+        android:clickable="true"
+        android:focusable="true"
+        android:paddingStart="12dp"
+        android:paddingEnd="12dp">
+
+        <ImageView
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:src="@drawable/pie_chart_icon_control_normal_24dp" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="12dp"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:text="@string/file_list_action_storage_analysis"
+            android:textAppearance="?textAppearanceBody2" />
+
+        <ImageView
+            android:id="@+id/overflow_storage_analysis_check"
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:visibility="gone"
+            android:src="@drawable/check_icon_control_normal_24dp" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/overflow_copy_path"
+        android:layout_width="match_parent"
+        android:layout_height="40dp"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:background="?selectableItemBackground"
+        android:clickable="true"
+        android:focusable="true"
+        android:paddingStart="12dp"
+        android:paddingEnd="12dp">
+
+        <ImageView
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:src="@drawable/link_icon_control_normal_24dp" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="12dp"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:text="@string/file_list_action_copy_path"
+            android:textAppearance="?textAppearanceBody2" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/overflow_open_in_terminal"
+        android:layout_width="match_parent"
+        android:layout_height="40dp"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:background="?selectableItemBackground"
+        android:clickable="true"
+        android:focusable="true"
+        android:paddingStart="12dp"
+        android:paddingEnd="12dp">
+
+        <ImageView
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:src="@drawable/terminal_icon_control_normal_24dp" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="12dp"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:text="@string/file_list_action_open_in_terminal"
+            android:textAppearance="?textAppearanceBody2" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/overflow_add_bookmark"
+        android:layout_width="match_parent"
+        android:layout_height="40dp"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:background="?selectableItemBackground"
+        android:clickable="true"
+        android:focusable="true"
+        android:paddingStart="12dp"
+        android:paddingEnd="12dp">
+
+        <ImageView
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:src="@drawable/bookmark_add_icon_control_normal_24dp" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="12dp"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:text="@string/file_list_action_add_bookmark"
+            android:textAppearance="?textAppearanceBody2" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/overflow_create_shortcut"
+        android:layout_width="match_parent"
+        android:layout_height="40dp"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:background="?selectableItemBackground"
+        android:clickable="true"
+        android:focusable="true"
+        android:paddingStart="12dp"
+        android:paddingEnd="12dp">
+
+        <ImageView
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:src="@drawable/shortcut_icon_control_normal_24dp" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="12dp"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:text="@string/file_list_action_create_shortcut"
+            android:textAppearance="?textAppearanceBody2" />
+    </LinearLayout>
+</LinearLayout>

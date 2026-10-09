@@ -4,7 +4,9 @@ import android.content.Context
 import android.content.res.ColorStateList
 import android.util.AttributeSet
 import android.view.DragEvent
+import android.view.MotionEvent
 import android.view.View
+import android.view.ViewGroup
 import android.widget.HorizontalScrollView
 import android.widget.LinearLayout
 import androidx.annotation.AttrRes
@@ -45,6 +47,15 @@ class BreadcrumbLayout : HorizontalScrollView {
     private var isScrollToSelectedItemPending = false
     private var isFirstScroll = true
 
+    // Column view mode: every item is forced to the fixed column width so that item i sits
+    // exactly above column i, independent touch scrolling is disabled (the column container
+    // drives this view's scroll offset 1:1), and tapping an item scrolls to its column instead
+    // of navigating (truncating the deeper columns).
+    var columnMode = false
+
+    // Invoked in column mode when an item is tapped, with its index.
+    var columnItemTapListener: ((Int) -> Unit)? = null
+
     constructor(context: Context) : super(context)
 
     constructor(context: Context, attrs: AttributeSet?) : super(
@@ -65,9 +76,28 @@ class BreadcrumbLayout : HorizontalScrollView {
     init {
         isHorizontalScrollBarEnabled = false
         itemsLayout = LinearLayout(context).apply { orientation = LinearLayout.HORIZONTAL }
-        itemsLayout.setPaddingRelative(paddingStart, paddingTop, paddingEnd, paddingBottom)
-        setPaddingRelative(0, 0, 0, 0)
+        // The start padding stays on the scroll view itself, clipped, so that scrolled content
+        // never overlaps the fixed storage analysis indicator overlaid at the start edge; only
+        // the end padding rides with the content.
+        itemsLayout.setPaddingRelative(0, paddingTop, paddingEnd, paddingBottom)
+        clipToPadding = true
+        setPaddingRelative(paddingStart, paddingTop, 0, paddingBottom)
         addView(itemsLayout, LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.MATCH_PARENT))
+    }
+
+    override fun onInterceptTouchEvent(event: MotionEvent): Boolean {
+        if (columnMode) {
+            // The column container is the single scrolling driver in column mode.
+            return false
+        }
+        return super.onInterceptTouchEvent(event)
+    }
+
+    override fun onTouchEvent(event: MotionEvent): Boolean {
+        if (columnMode) {
+            return false
+        }
+        return super.onTouchEvent(event)
     }
 
     override fun jumpDrawablesToCurrentState() {
@@ -132,6 +162,10 @@ class BreadcrumbLayout : HorizontalScrollView {
     }
 
     private fun scrollToSelectedItem() {
+        if (columnMode) {
+            // Alignment is driven by the column container's scroll offset in column mode.
+            return
+        }
         if (isLayoutDirty) {
             isScrollToSelectedItemPending = true
             return
@@ -186,16 +220,22 @@ class BreadcrumbLayout : HorizontalScrollView {
     }
 
     private fun bindItemViews() {
+        val columnWidth = context.getDimensionPixelSize(R.dimen.file_list_column_width)
         for (index in data.paths.indices) {
             @Suppress("UNCHECKED_CAST")
             val tag = itemsLayout.getChildAt(index).tag as Pair<BreadcrumbItemBinding, PopupMenu>
             val (binding, menu) = tag
             binding.text.text = data.nameProducers[index](binding.text.context)
-            binding.arrowImage.isVisible = index != data.paths.size - 1
+            binding.arrowImage.isVisible = !columnMode && index != data.paths.size - 1
             binding.root.isActivated = index == data.selectedIndex
+            val itemLayoutParams = binding.root.layoutParams
+            itemLayoutParams.width = if (columnMode) columnWidth else ViewGroup.LayoutParams.WRAP_CONTENT
+            binding.root.layoutParams = itemLayoutParams
             val path = data.paths[index]
             binding.root.setOnClickListener {
-                if (data.selectedIndex == index) {
+                if (columnMode) {
+                    columnItemTapListener?.invoke(index)
+                } else if (data.selectedIndex == index) {
                     scrollToSelectedItem()
                 } else {
                     listener.navigateTo(path)

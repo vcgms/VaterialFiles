@@ -70,8 +70,10 @@ class NavigationRecyclerView : RecyclerView {
         val paddingLeft = if (isLayoutDirectionRtl) 0 else insetStart
         val paddingRight = if (isLayoutDirectionRtl) insetStart else 0
         insetTop = insets.systemWindowInsetTop
+        // The header above this list handles the status bar inset itself, so only keep the
+        // regular vertical padding here; adding insetTop again would double the gap.
         setPadding(
-            paddingLeft, verticalPadding + insetTop, paddingRight,
+            paddingLeft, verticalPadding, paddingRight,
             verticalPadding + insets.systemWindowInsetBottom
         )
         requestLayout()

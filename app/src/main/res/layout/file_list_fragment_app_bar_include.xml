@@ -24,6 +24,7 @@
                 android:layout_height="@dimen/file_list_toolbar_height"
                 android:paddingStart="@dimen/file_list_toolbar_padding_start"
                 android:paddingEnd="@dimen/file_list_toolbar_padding_end_with_overflow"
+                app:contentInsetStart="0dp"
                 app:navigationIcon="@drawable/menu_icon_control_normal_24dp"
                 app:navigationContentDescription="@string/open_navigation_drawer"
                 app:popupTheme="?actionBarPopupTheme"
@@ -41,11 +42,45 @@
                 app:popupTheme="?actionBarPopupTheme" />
         </FrameLayout>
 
-        <dev.vcgms.aapp.vaterialfiles.filelist.BreadcrumbLayout
-            android:id="@+id/breadcrumbLayout"
+        <FrameLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:paddingStart="@dimen/content_start_margin_minus_12dp"
-            android:paddingEnd="@dimen/screen_edge_margin_minus_12dp" />
+            android:paddingEnd="@dimen/screen_edge_margin_minus_12dp">
+
+            <dev.vcgms.aapp.vaterialfiles.filelist.BreadcrumbLayout
+                android:id="@+id/breadcrumbLayout"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:paddingStart="36dp" />
+
+            <!-- Storage analysis state indicator; overlaid at the very start edge, independent
+                 of the breadcrumb scroll content which is padded and clipped to never overlap
+                 it. -->
+            <FrameLayout
+                android:id="@+id/storageAnalysisIndicator"
+                android:layout_width="18dp"
+                android:layout_height="18dp"
+                android:layout_gravity="start|center_vertical"
+                android:layout_marginStart="15dp"
+                android:translationY="0.6dp"
+                android:visibility="gone">
+
+                <ImageView
+                    android:id="@+id/storageAnalysisIcon"
+                    android:layout_width="16dp"
+                    android:layout_height="16dp"
+                    android:layout_gravity="center"
+                    android:src="@drawable/pie_chart_icon_control_normal_24dp" />
+
+                <ProgressBar
+                    android:id="@+id/storageAnalysisProgress"
+                    style="?android:attr/progressBarStyleSmall"
+                    android:layout_width="16dp"
+                    android:layout_height="16dp"
+                    android:layout_gravity="center"
+                    android:indeterminateTint="?colorControlNormal"
+                    android:visibility="gone" />
+            </FrameLayout>
+        </FrameLayout>
     </dev.vcgms.aapp.vaterialfiles.ui.CoordinatorAppBarLayout>
 </merge>

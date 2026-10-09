@@ -55,6 +55,15 @@
     <style name="ThemeOverlay.MaterialFiles.ActionBar" parent="">
         <item name="colorControlNormal">?android:textColorPrimary</item>
         <item name="searchViewStyle">@style/Widget.AppCompat.SearchView.ActionBar</item>
+        <item name="actionButtonStyle">@style/Widget.MaterialFiles.Material3.ActionButton</item>
+    </style>
+
+    <!-- 40dp wide action buttons tighten the gap between the trailing toolbar icons while the
+         rightmost button stays anchored to the end edge. -->
+    <style name="Widget.MaterialFiles.Material3.ActionButton" parent="Widget.AppCompat.ActionButton">
+        <item name="android:minWidth">40dp</item>
+        <item name="android:paddingStart">8dp</item>
+        <item name="android:paddingEnd">8dp</item>
     </style>
 
     <style name="ThemeOverlay.MaterialFiles.ActionBarPopup" parent="">

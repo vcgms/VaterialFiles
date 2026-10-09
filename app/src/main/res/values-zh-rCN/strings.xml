@@ -231,6 +231,8 @@
     <string name="file_create_directory_title">新建文件夹</string>
 
     <string name="file_list_title">文件</string>
+    <string name="user_storage_name">用户存储</string>
+    <string name="user_storage_name_with_id_format">用户%1$s存储</string>
     <plurals name="file_list_title_open_file">
         <item quantity="other">选择文件</item>
     </plurals>
@@ -252,6 +254,7 @@
     <string name="file_list_path_error_invalid">无效路径</string>
     <string name="file_list_action_view_sort">视图和排序</string>
     <string name="file_list_action_dual_pane">双列模式</string>
+    <string name="more">更多</string>
     <string name="file_list_dual_pane_move_here">移动到这里</string>
     <string name="file_list_dual_pane_copy_here">复制到这里</string>
     <string name="file_item_action_move_to_right">移动到右边</string>
@@ -260,11 +263,13 @@
     <string name="file_item_action_copy_to_left">复制到左边</string>
     <string name="file_list_action_view_list">列表</string>
     <string name="file_list_action_view_dual">双列</string>
+    <string name="file_list_action_view_column">分栏</string>
     <string name="file_list_action_view_grid">网格</string>
     <string name="file_list_action_sort_by_name">名称</string>
     <string name="file_list_action_sort_by_type">类型</string>
     <string name="file_list_action_sort_by_size">大小</string>
     <string name="file_list_action_sort_by_last_modified">最后修改</string>
+    <string name="file_list_action_sort_by_date">日期</string>
     <string name="file_list_action_sort_order_ascending">升序</string>
     <string name="file_list_action_sort_directories_first">文件夹优先</string>
     <string name="file_list_action_view_sort_path_specific">仅用于此文件夹</string>
@@ -272,6 +277,7 @@
     <string name="file_list_action_navigate_up">向上</string>
     <string name="file_list_action_navigate_to">转到</string>
     <string name="file_list_action_show_hidden_files">显示隐藏文件</string>
+    <string name="file_list_action_storage_analysis">存储分析</string>
     <string name="file_list_action_copy_path">复制路径</string>
     <string name="file_list_action_open_in_terminal">在终端中打开</string>
     <string name="file_list_action_add_bookmark">添加书签</string>
@@ -289,6 +295,8 @@
     <string name="file_list_action_create_directory">文件夹</string>
 
     <string name="file_item_description_separator">"    "</string>
+    <string name="file_item_storage_analysis_computing">正在计算</string>
+    <string name="file_item_storage_analysis_percent_format">%1$d%%</string>
     <string name="file_item_action_open_with">打开方式</string>
     <string name="file_item_action_select">多选</string>
     <string name="file_item_action_extract">提取</string>
@@ -592,6 +600,10 @@
 
     <string name="settings_title">设置</string>
     <string name="settings_interface_title">界面</string>
+    <string name="settings_appearance_title">外观</string>
+    <string name="settings_directories_title">目录</string>
+    <string name="settings_storage_analysis_title">存储分析</string>
+    <string name="settings_advanced_title">高级</string>
     <string name="settings_locale_title">语言</string>
     <string name="settings_theme_color_title">主题色</string>
     <string name="settings_theme_color_summary">应用中最常见的颜色</string>
@@ -608,6 +620,7 @@
     <string name="settings_file_list_animation_title">文件列表动画</string>
     <string name="settings_file_name_ellipsize_title">显示长文件名</string>
     <string-array name="settings_file_name_ellipsize_entries">
+        <item>多行</item>
         <item>省略开头</item>
         <item>省略中间</item>
         <item>省略结尾</item>
@@ -639,6 +652,10 @@
     <string name="settings_show_pdf_thumbnail_pre_28_title">显示 PDF 文档缩略图</string>
     <string name="settings_show_pdf_thumbnail_pre_28_summary">可能导致应用在旧版 Android 上不稳定</string>
     <string name="settings_read_remote_files_for_thumbnail_title">读取远程文件以显示缩略图</string>
+    <string name="settings_file_list_storage_analysis_only_user_subdirectories_title">仅分析用户子目录</string>
+    <string name="settings_file_list_storage_analysis_only_user_subdirectories_summary">仅对每个用户存储目录的子目录进行存储分析</string>
+    <string name="settings_file_list_storage_analysis_remote_directories_title">分析远程目录</string>
+    <string name="settings_file_list_storage_analysis_remote_directories_summary">允许存储分析扫描 SMB、FTP、SFTP、WebDAV 等远程存储</string>
 
     <string name="settings_display_size_title">显示大小</string>
     <string-array name="settings_display_size_entries">
