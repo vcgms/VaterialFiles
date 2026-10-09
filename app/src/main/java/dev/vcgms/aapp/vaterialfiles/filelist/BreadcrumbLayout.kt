@@ -4,10 +4,12 @@ import android.content.Context
 import android.content.res.ColorStateList
 import android.util.AttributeSet
 import android.view.DragEvent
+import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.widget.HorizontalScrollView
+import android.widget.ImageView
 import android.widget.LinearLayout
 import androidx.annotation.AttrRes
 import androidx.annotation.StyleRes
@@ -170,7 +172,8 @@ class BreadcrumbLayout : HorizontalScrollView {
             isScrollToSelectedItemPending = true
             return
         }
-        val selectedItemView = itemsLayout.getChildAt(data.selectedIndex)
+        val selectedItemView =
+            itemsLayout.getChildAt(if (columnMode) data.selectedIndex else data.selectedIndex * 2)
         val scrollX = if (layoutDirection == View.LAYOUT_DIRECTION_LTR) {
             selectedItemView.left - itemsLayout.paddingStart
         } else {
@@ -186,11 +189,15 @@ class BreadcrumbLayout : HorizontalScrollView {
 
     private fun inflateItemViews() {
         // HACK: Remove/add views at the front so that ripple remains correct, as we are potentially
-        // collapsing/expanding breadcrumbs at the front.
-        for (index in data.paths.size..<itemsLayout.childCount) {
+        // collapsing/expanding breadcrumbs at the front. Each entry is followed by a standalone
+        // arrow view (except the last one, and none in column mode), so the item views themselves
+        // only contain the clickable text.
+        val itemCount = data.paths.size
+        val expectedChildCount = if (columnMode) itemCount else itemCount * 2 - 1
+        while (itemsLayout.childCount > expectedChildCount) {
             itemsLayout.removeViewAt(0)
         }
-        for (index in itemsLayout.childCount..<data.paths.size) {
+        while (itemsLayout.childCount < expectedChildCount) {
             val binding = BreadcrumbItemBinding.inflate(context.layoutInflater, itemsLayout, false)
             val menu = PopupMenu(popupContext, binding.root)
                 .apply { inflate(R.menu.file_list_breadcrumb) }
@@ -203,7 +210,9 @@ class BreadcrumbLayout : HorizontalScrollView {
                 when (event.action) {
                     DragEvent.ACTION_DRAG_LOCATION -> dropListener != null
                     DragEvent.ACTION_DROP -> {
-                        val index = itemsLayout.indexOfChild(view)
+                        // Item views sit at even indices with arrow views in between.
+                        val index = itemsLayout.indexOfChild(view) /
+                            if (columnMode) 1 else 2
                         if (::data.isInitialized && index in data.paths.indices) {
                             dropListener?.invoke(data.paths[index])
                         }
@@ -213,20 +222,33 @@ class BreadcrumbLayout : HorizontalScrollView {
                 }
             }
             binding.text.setTextColor(itemColor)
-            binding.arrowImage.imageTintList = itemColor
             binding.root.tag = binding to menu
             itemsLayout.addView(binding.root, 0)
+            if (!columnMode && itemsLayout.childCount > 1) {
+                itemsLayout.addView(createArrowView(), 1)
+            }
         }
     }
+
+    // A standalone arrow between two breadcrumb entries, tinted with the secondary text color and
+    // vertically centered against the entry text.
+    private fun createArrowView(): View =
+        ImageView(context).apply {
+            setImageResource(R.drawable.arrow_end_icon_control_normal_24dp)
+            imageTintList = itemColor
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.MATCH_PARENT
+            ).apply { gravity = Gravity.CENTER }
+        }
 
     private fun bindItemViews() {
         val columnWidth = context.getDimensionPixelSize(R.dimen.file_list_column_width)
         for (index in data.paths.indices) {
+            val childIndex = if (columnMode) index else index * 2
             @Suppress("UNCHECKED_CAST")
-            val tag = itemsLayout.getChildAt(index).tag as Pair<BreadcrumbItemBinding, PopupMenu>
+            val tag = itemsLayout.getChildAt(childIndex).tag as Pair<BreadcrumbItemBinding, PopupMenu>
             val (binding, menu) = tag
             binding.text.text = data.nameProducers[index](binding.text.context)
-            binding.arrowImage.isVisible = !columnMode && index != data.paths.size - 1
             binding.root.isActivated = index == data.selectedIndex
             val itemLayoutParams = binding.root.layoutParams
             itemLayoutParams.width = if (columnMode) columnWidth else ViewGroup.LayoutParams.WRAP_CONTENT

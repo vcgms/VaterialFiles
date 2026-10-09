@@ -336,6 +336,10 @@
     <string name="file_item_description_separator">\u0020\u0020\u0020\u0020</string>
     <string name="file_item_storage_analysis_computing">Calculating…</string>
     <string name="file_item_storage_analysis_percent_format">%1$d%%</string>
+    <string name="storage_analysis_complete_toast">Analysis complete, long press to turn off</string>
+    <string name="storage_analysis_started_toast">Started analyzing the current directory</string>
+    <string name="storage_analysis_stopped_toast">Stopped analyzing</string>
+    <string name="storage_analysis_turned_off_toast">Storage analysis turned off</string>
     <string name="file_item_action_open_with">Open with</string>
     <string name="file_item_action_select">Select</string>
     <string name="file_item_action_extract">Extract</string>

@@ -12,6 +12,8 @@ import dev.vcgms.aapp.vaterialfiles.provider.archive.isArchivePath
 import dev.vcgms.aapp.vaterialfiles.provider.document.isDocumentPath
 import dev.vcgms.aapp.vaterialfiles.provider.document.resolver.DocumentResolver
 import dev.vcgms.aapp.vaterialfiles.provider.linux.isLinuxPath
+import dev.vcgms.aapp.vaterialfiles.settings.Settings
+import dev.vcgms.aapp.vaterialfiles.util.valueCompat
 
 val Path.name: String
     get() = emulatedUserStorageName()
@@ -41,6 +43,22 @@ private fun Path.emulatedUserStorageName(): String? {
 @Suppress("DEPRECATION")
 private val currentUserStorageId: String? =
     Paths.get(Environment.getExternalStorageDirectory().absolutePath).fileName?.toString()
+
+// Whether the storage analysis path gates allow analyzing the given path: remote paths need the
+// "analyze remote directories" toggle, and local paths need to be emulated user subdirectories
+// unless the "only analyze user subdirectories" toggle is off. Shared by the host fragment and
+// the dual-pane/column panes.
+fun isStorageAnalysisPathAllowed(path: Path): Boolean {
+    if (path.isRemotePath) {
+        return Settings.FILE_LIST_STORAGE_ANALYSIS_REMOTE_DIRECTORIES.valueCompat
+    }
+    if (!Settings.FILE_LIST_STORAGE_ANALYSIS_ONLY_USER_SUBDIRECTORIES.valueCompat) {
+        return true
+    }
+    return path.nameCount >= 4 &&
+        path.getName(0).toString() == "storage" &&
+        path.getName(1).toString() == "emulated"
+}
 
 fun Path.toUserFriendlyString(): String = if (isLinuxPath) toFile().path else toUri().toString()
 

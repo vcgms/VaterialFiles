@@ -297,6 +297,10 @@
     <string name="file_item_description_separator">"    "</string>
     <string name="file_item_storage_analysis_computing">正在计算</string>
     <string name="file_item_storage_analysis_percent_format">%1$d%%</string>
+    <string name="storage_analysis_complete_toast">已分析完成，长按可关闭存储分析</string>
+    <string name="storage_analysis_started_toast">开始分析当前目录</string>
+    <string name="storage_analysis_stopped_toast">已停止存储分析</string>
+    <string name="storage_analysis_turned_off_toast">已关闭存储分析</string>
     <string name="file_item_action_open_with">打开方式</string>
     <string name="file_item_action_select">多选</string>
     <string name="file_item_action_extract">提取</string>

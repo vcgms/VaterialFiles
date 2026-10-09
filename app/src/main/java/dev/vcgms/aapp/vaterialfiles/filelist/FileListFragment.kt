@@ -232,6 +232,13 @@ class FileListFragment : Fragment(), BreadcrumbLayout.Listener, FileListAdapter.
     // Whether a storage analysis walk is currently in progress for the current directory.
     private var isStorageAnalysisComputing = false
 
+    // Whether the user manually stopped the analysis for the current directory; navigating away
+    // or an explicit restart clears it.
+    private var isStorageAnalysisPaused = false
+
+    // The path the user force-analyzed via the indicator tap, bypassing the path gates.
+    private var forcedStorageAnalysisPath: Path? = null
+
     private val debouncedSearchRunnable = DebouncedRunnable(Handler(Looper.getMainLooper()), 1000) {
         if (!isResumed || !viewModel.isSearchViewExpanded) {
             return@DebouncedRunnable
@@ -493,6 +500,13 @@ class FileListFragment : Fragment(), BreadcrumbLayout.Listener, FileListAdapter.
         Settings.FILE_LIST_STORAGE_ANALYSIS_REMOTE_DIRECTORIES.observe(viewLifecycleOwner) {
             startStorageAnalysisIfEnabled()
         }
+        binding.storageAnalysisIndicator.setOnClickListener {
+            onStorageAnalysisIndicatorClicked()
+        }
+        binding.storageAnalysisIndicator.setOnLongClickListener {
+            onStorageAnalysisIndicatorLongClicked()
+            true
+        }
         childFragmentManager.setFragmentResultListener(
             MoveCopyDialogFragment.REQUEST_KEY, viewLifecycleOwner
         ) { _, bundle ->
@@ -707,13 +721,11 @@ class FileListFragment : Fragment(), BreadcrumbLayout.Listener, FileListAdapter.
         }
         viewSortBinding.vsViewDual.setOnClickListener {
             viewSortPopup?.dismiss()
-            Settings.FILE_LIST_STORAGE_ANALYSIS.putValue(false)
             Settings.FILE_LIST_COLUMN_MODE.putValue(false)
             Settings.FILE_LIST_DUAL_PANE.putValue(true)
         }
         viewSortBinding.vsViewColumn.setOnClickListener {
             viewSortPopup?.dismiss()
-            Settings.FILE_LIST_STORAGE_ANALYSIS.putValue(false)
             Settings.FILE_LIST_DUAL_PANE.putValue(false)
             Settings.FILE_LIST_COLUMN_MODE.putValue(true)
         }
@@ -732,15 +744,9 @@ class FileListFragment : Fragment(), BreadcrumbLayout.Listener, FileListAdapter.
             tintViewText(
                 viewSortBinding.vsSortByLastModified, sortOptions.by == By.LAST_MODIFIED
             )
-            tintViewButton(
-                viewSortBinding.vsSortOrderAscending, sortOptions.order == Order.ASCENDING
-            )
-            tintViewButton(
-                viewSortBinding.vsSortDirectoriesFirst, sortOptions.isDirectoriesFirst
-            )
-            tintViewButton(
-                viewSortBinding.vsViewSortPathSpecific, activeViewModel.isViewSortPathSpecific
-            )
+            viewSortBinding.vsCheckAscending.isVisible = sortOptions.order == Order.ASCENDING
+            viewSortBinding.vsCheckDirectoriesFirst.isVisible = sortOptions.isDirectoriesFirst
+            viewSortBinding.vsCheckPathSpecific.isVisible = activeViewModel.isViewSortPathSpecific
         }
         updateSortChecks()
         viewSortBinding.vsSortByName.setOnClickListener {
@@ -850,6 +856,10 @@ class FileListFragment : Fragment(), BreadcrumbLayout.Listener, FileListAdapter.
     }
 
     private fun onCurrentPathChanged(path: Path) {
+        // A manual pause/force only applies to the directory it was made on; a new directory
+        // falls back to the regular settings-driven behavior.
+        isStorageAnalysisPaused = false
+        forcedStorageAnalysisPath = null
         updateToolbarTitle(path)
         updateToolbarSubtitle()
         updateOverlayToolbar()
@@ -930,13 +940,19 @@ class FileListFragment : Fragment(), BreadcrumbLayout.Listener, FileListAdapter.
 
     private fun onDualPaneChanged(enabled: Boolean) {
         if (enabled) {
-            Settings.FILE_LIST_STORAGE_ANALYSIS.putValue(false)
             // Dual pane and column view are mutually exclusive multi-pane layouts.
             Settings.FILE_LIST_COLUMN_MODE.putValue(false)
+            // The panes own the storage analysis state in multi-pane layouts; stop the host's
+            // single-column walk.
+            storageAnalysisComputer.cancel()
+            storageAnalysisTotal = null
+            isStorageAnalysisComputing = false
+            adapter.setStorageAnalysisEnabled(false)
         }
         binding.dualPaneContainer?.isVisible = enabled
         binding.contentLayout.isVisible = !enabled
         updateToolbarSubtitle()
+        updateStorageAnalysisIndicator()
         if (enabled) {
             if (overlayActionMode.isActive) {
                 overlayActionMode.finish()
@@ -999,15 +1015,18 @@ class FileListFragment : Fragment(), BreadcrumbLayout.Listener, FileListAdapter.
         rightPane.breadcrumbListener = { data -> onPaneBreadcrumbChanged(rightPane, data) }
         leftPane.pasteStateListener = { onPanePasteStateChanged() }
         rightPane.pasteStateListener = { onPanePasteStateChanged() }
-        // Refresh the toolbar subtitle when the active pane's file list finishes loading.
+        // Refresh the toolbar subtitle and the storage analysis indicator when the active pane's
+        // file list or analysis state changes.
         leftPane.subtitleListener = {
             if (isDualPane && activePane === leftPane) {
                 updateToolbarSubtitle()
+                updateStorageAnalysisIndicator()
             }
         }
         rightPane.subtitleListener = {
             if (isDualPane && activePane === rightPane) {
                 updateToolbarSubtitle()
+                updateStorageAnalysisIndicator()
             }
         }
         // Each column keeps its own selection; sync the overlay action bar with the active column.
@@ -1056,13 +1075,19 @@ class FileListFragment : Fragment(), BreadcrumbLayout.Listener, FileListAdapter.
         updateBottomToolbar()
         updateNavigateUpBackCallbackEnabled()
         updateToolbarSubtitle()
+        updateStorageAnalysisIndicator()
         updateOverlayToolbar()
     }
 
     private fun onColumnModeChanged(enabled: Boolean) {
         if (enabled) {
-            Settings.FILE_LIST_STORAGE_ANALYSIS.putValue(false)
             Settings.FILE_LIST_DUAL_PANE.putValue(false)
+            // The panes own the storage analysis state in multi-pane layouts; stop the host's
+            // single-column walk.
+            storageAnalysisComputer.cancel()
+            storageAnalysisTotal = null
+            isStorageAnalysisComputing = false
+            adapter.setStorageAnalysisEnabled(false)
             if (overlayActionMode.isActive) {
                 overlayActionMode.finish()
             }
@@ -1083,6 +1108,7 @@ class FileListFragment : Fragment(), BreadcrumbLayout.Listener, FileListAdapter.
         }
         updateToolbarTitle()
         updateToolbarSubtitle()
+        updateStorageAnalysisIndicator()
         updateBottomToolbar()
         updateNavigateUpBackCallbackEnabled()
         updateOverlayToolbar()
@@ -1169,6 +1195,7 @@ class FileListFragment : Fragment(), BreadcrumbLayout.Listener, FileListAdapter.
         pane.subtitleListener = {
             if (isColumnMode && activePane === pane) {
                 updateToolbarSubtitle()
+                updateStorageAnalysisIndicator()
             }
         }
         pane.selectionListener = { _ ->
@@ -1351,14 +1378,15 @@ class FileListFragment : Fragment(), BreadcrumbLayout.Listener, FileListAdapter.
             appendIconCount(builder, R.drawable.directory_icon_white_24dp, directoryCount)
         }
         if (directoryCount > 0 && fileCount > 0) {
-            builder.append(' ')
+            // A wider gap between the count and the next icon so it doesn't feel cramped.
+            builder.append("   ")
         }
         if (fileCount > 0) {
             appendIconCount(builder, R.drawable.file_icon_white_24dp, fileCount)
         }
         if (isStorageAnalysisActive && !viewModel.searchState.isSearching) {
-            builder.append(' ')
-            val sizeText = storageAnalysisTotal?.let {
+            builder.append("   ")
+            val sizeText = effectiveStorageAnalysisTotal?.let {
                 it.asFileSize().formatHumanReadable(requireContext())
             } ?: getString(R.string.file_item_storage_analysis_computing)
             appendIconText(
@@ -1389,6 +1417,8 @@ class FileListFragment : Fragment(), BreadcrumbLayout.Listener, FileListAdapter.
             CenterVerticalImageSpan(drawable),
             start, start + 1, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
         )
+        // A wider gap between the icon and the number so they don't touch.
+        builder.append("  ")
         builder.append(text)
     }
 
@@ -1492,12 +1522,7 @@ class FileListFragment : Fragment(), BreadcrumbLayout.Listener, FileListAdapter.
     }
 
     private fun onStorageAnalysisChanged(enabled: Boolean) {
-        if (enabled) {
-            // Storage analysis only applies to the single-column list.
-            Settings.FILE_LIST_DUAL_PANE.putValue(false)
-            Settings.FILE_LIST_COLUMN_MODE.putValue(false)
-            viewModel.viewType = FileViewType.LIST
-        } else {
+        if (!enabled) {
             storageAnalysisComputer.cancel()
             storageAnalysisTotal = null
             isStorageAnalysisComputing = false
@@ -1510,41 +1535,39 @@ class FileListFragment : Fragment(), BreadcrumbLayout.Listener, FileListAdapter.
         }
     }
 
-    // Whether the current path is /storage/emulated/<user>/<subdirectory> (or deeper): the
-    // internal shared storage root itself (three path components) is excluded, so each user's
-    // whole shared space is never scanned as a single walk.
-    private fun isEmulatedUserSubdirectory(path: Path): Boolean {
-        if (path.nameCount < 4) {
-            return false
-        }
-        return path.getName(0).toString() == "storage" &&
-            path.getName(1).toString() == "emulated"
-    }
-
-    private fun isStorageAnalysisPathAllowed(path: Path): Boolean {
-        // Remote paths (SMB/FTP/SFTP/WebDAV/non-local document) are gated by their own toggle,
-        // orthogonal to the local-path gate below, since walking them costs network round trips.
-        if (path.isRemotePath) {
-            return Settings.FILE_LIST_STORAGE_ANALYSIS_REMOTE_DIRECTORIES.valueCompat
-        }
-        if (!Settings.FILE_LIST_STORAGE_ANALYSIS_ONLY_USER_SUBDIRECTORIES.valueCompat) {
-            return true
-        }
-        return isEmulatedUserSubdirectory(path)
-    }
-
-    // Whether the analysis display is actually active: the toggle is on and the current path
-    // passes the "only user subdirectories" gate.
+    // Whether the analysis display is actually active for the active pane: the toggle is on,
+    // the user hasn't paused it, and the current path either passes the gates or was
+    // force-analyzed explicitly. In dual-pane/column mode the active pane owns the state.
     private val isStorageAnalysisActive: Boolean
         get() {
-            if (!Settings.FILE_LIST_STORAGE_ANALYSIS.valueCompat) {
+            if (isPaneMode) {
+                return activePane?.isStorageAnalysisActiveCompat == true
+            }
+            if (!Settings.FILE_LIST_STORAGE_ANALYSIS.valueCompat || isStorageAnalysisPaused) {
                 return false
             }
             val path = runCatching { viewModel.currentPath }.getOrNull() ?: return false
-            return isStorageAnalysisPathAllowed(path)
+            return isStorageAnalysisPathAllowed(path) || forcedStorageAnalysisPath == path
         }
 
+    private val effectiveStorageAnalysisComputing: Boolean
+        get() = if (isPaneMode) {
+            activePane?.isStorageAnalysisComputing == true
+        } else {
+            isStorageAnalysisComputing
+        }
+
+    private val effectiveStorageAnalysisTotal: Long?
+        get() = if (isPaneMode) activePane?.storageAnalysisTotal else storageAnalysisTotal
+
     private fun startStorageAnalysisIfEnabled() {
+        if (isPaneMode) {
+            // In dual-pane/column mode each pane owns its analysis state; the host only mirrors
+            // the active pane's state in the indicator and the subtitle.
+            updateStorageAnalysisIndicator()
+            updateToolbarSubtitle()
+            return
+        }
         val enabled = isStorageAnalysisActive
         if (adapter.storageAnalysisEnabled != enabled) {
             adapter.setStorageAnalysisEnabled(enabled)
@@ -1597,21 +1620,99 @@ class FileListFragment : Fragment(), BreadcrumbLayout.Listener, FileListAdapter.
         }
     }
 
-    // Reflects the storage analysis state in the breadcrumb bar indicator: hidden when the toggle
-    // is off, a dimmed pie chart when it doesn't apply to the current path, an indeterminate
-    // spinner while computing, and a full pie chart when done.
+    // Reflects the storage analysis state in the breadcrumb bar indicator, which is always
+    // visible: a slashed pie chart when the toggle is off, a dimmed pie chart when the current
+    // path isn't analyzed, an indeterminate spinner while computing, and a full pie chart when
+    // the analysis has completed.
     private fun updateStorageAnalysisIndicator() {
-        val analysisOn = Settings.FILE_LIST_STORAGE_ANALYSIS.valueCompat
-        binding.storageAnalysisIndicator.isVisible = analysisOn
-        if (!analysisOn) {
+        val enabled = Settings.FILE_LIST_STORAGE_ANALYSIS.valueCompat
+        val computing = isStorageAnalysisActive && effectiveStorageAnalysisComputing
+        val done = isStorageAnalysisActive && !effectiveStorageAnalysisComputing &&
+            effectiveStorageAnalysisTotal != null
+        binding.storageAnalysisIndicator.isVisible = true
+        when {
+            !enabled -> {
+                binding.storageAnalysisProgress.isVisible = false
+                binding.storageAnalysisIcon.isVisible = true
+                binding.storageAnalysisIcon.alpha = 0.5f
+                binding.storageAnalysisIcon.setImageResource(
+                    R.drawable.pie_chart_x_icon_control_normal_24dp
+                )
+            }
+            computing -> {
+                binding.storageAnalysisProgress.isVisible = true
+                binding.storageAnalysisIcon.isVisible = false
+            }
+            done -> {
+                binding.storageAnalysisProgress.isVisible = false
+                binding.storageAnalysisIcon.isVisible = true
+                binding.storageAnalysisIcon.alpha = 1f
+                binding.storageAnalysisIcon.setImageResource(
+                    R.drawable.pie_chart_check_icon_control_normal_24dp
+                )
+            }
+            else -> {
+                binding.storageAnalysisProgress.isVisible = false
+                binding.storageAnalysisIcon.isVisible = true
+                binding.storageAnalysisIcon.alpha = 0.5f
+                binding.storageAnalysisIcon.setImageResource(
+                    R.drawable.pie_chart_icon_control_normal_24dp
+                )
+            }
+        }
+    }
+
+    // Short press behavior by state: turned off / not analyzed -> start a forced analysis of the
+    // current directory (ignoring the path gates); computing -> stop and return to the not
+    // analyzed state; complete -> show a hint that a long press turns the feature off.
+    private fun onStorageAnalysisIndicatorClicked() {
+        if (isPaneMode) {
+            activePane?.onStorageAnalysisIndicatorClicked()
             return
         }
-        val applicable = isStorageAnalysisActive
-        val computing = isStorageAnalysisComputing
-        binding.storageAnalysisProgress.isVisible = applicable && computing
-        binding.storageAnalysisIcon.isVisible = !binding.storageAnalysisProgress.isVisible
-        // A dimmed icon means the analysis is on but doesn't apply to the current path.
-        binding.storageAnalysisIcon.alpha = if (applicable) 1f else 0.38f
+        val computing = isStorageAnalysisActive && isStorageAnalysisComputing
+        val done = isStorageAnalysisActive && !isStorageAnalysisComputing &&
+            storageAnalysisTotal != null
+        when {
+            computing -> {
+                stopStorageAnalysis()
+                showToast(R.string.storage_analysis_stopped_toast)
+            }
+            done -> showToast(R.string.storage_analysis_complete_toast)
+            else -> {
+                startStorageAnalysisForced()
+                showToast(R.string.storage_analysis_started_toast)
+            }
+        }
+    }
+
+    private fun onStorageAnalysisIndicatorLongClicked() {
+        isStorageAnalysisPaused = false
+        forcedStorageAnalysisPath = null
+        Settings.FILE_LIST_STORAGE_ANALYSIS.putValue(false)
+        showToast(R.string.storage_analysis_turned_off_toast)
+    }
+
+    private fun startStorageAnalysisForced() {
+        isStorageAnalysisPaused = false
+        val path = runCatching { viewModel.currentPath }.getOrNull() ?: return
+        forcedStorageAnalysisPath = path
+        if (Settings.FILE_LIST_STORAGE_ANALYSIS.valueCompat) {
+            startStorageAnalysisIfEnabled()
+        } else {
+            Settings.FILE_LIST_STORAGE_ANALYSIS.putValue(true)
+        }
+    }
+
+    private fun stopStorageAnalysis() {
+        isStorageAnalysisPaused = true
+        forcedStorageAnalysisPath = null
+        storageAnalysisComputer.cancel()
+        storageAnalysisTotal = null
+        isStorageAnalysisComputing = false
+        adapter.setStorageAnalysisEnabled(false)
+        updateStorageAnalysisIndicator()
+        updateToolbarSubtitle()
     }
 
     private fun onShowHiddenFilesChanged(showHiddenFiles: Boolean) {

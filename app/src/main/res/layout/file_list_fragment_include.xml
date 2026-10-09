@@ -65,7 +65,7 @@
                         android:layout_gravity="top"
                         android:scrollbars="none"
                         android:clipToPadding="false"
-                        android:paddingStart="36dp"
+                        android:paddingStart="40dp"
                         android:visibility="gone"
                         app:layout_behavior="@string/appbar_scrolling_view_behavior">
 

@@ -368,6 +368,8 @@ class FileListAdapter(
 
     // Builds the item description line: modification time, then for directories the immediate
     // item count, then when storage analysis is enabled the size and share of the parent total.
+    // In dense styles (dual-pane/column) with analysis enabled the line is compact: files show
+    // only their size, directories only the item count and size.
     private fun buildDescription(
         descriptionText: TextView,
         file: FileItem,
@@ -376,14 +378,11 @@ class FileListAdapter(
         val context = descriptionText.context
         val descriptionSeparator = context.getString(R.string.file_item_description_separator)
         val parts = mutableListOf<String>()
-        if (!isDirectory || !storageAnalysisEnabled) {
-            // Storage analysis hides the modification time for directories to make room for the
-            // item count, size and share; file rows keep it.
-            parts.add(
-                file.attributes.lastModifiedTime().toInstant().formatShort(context)
-            )
-        }
+        val isDenseAnalysis = isDenseStyle && storageAnalysisEnabled
         if (isDirectory) {
+            if (!isDenseAnalysis) {
+                parts.add(file.attributes.lastModifiedTime().toInstant().formatShort(context))
+            }
             val itemCount = directoryItemCountCache[file.path]
             if (itemCount != null) {
                 parts.add(
@@ -396,14 +395,19 @@ class FileListAdapter(
                 val size = storageAnalysisSizes[file.path]
                 if (size != null) {
                     parts.add(size.asFileSize().formatHumanReadable(context))
-                    appendStorageAnalysisPercentage(parts, context, size)
+                    if (!isDenseAnalysis) {
+                        appendStorageAnalysisPercentage(parts, context, size)
+                    }
                 } else {
                     parts.add(context.getString(R.string.file_item_storage_analysis_computing))
                 }
             }
         } else {
+            if (!isDenseAnalysis) {
+                parts.add(file.attributes.lastModifiedTime().toInstant().formatShort(context))
+            }
             parts.add(file.attributes.fileSize.formatHumanReadable(context))
-            if (storageAnalysisEnabled) {
+            if (storageAnalysisEnabled && !isDenseAnalysis) {
                 appendStorageAnalysisPercentage(parts, context, file.attributes.fileSize.value)
             }
         }

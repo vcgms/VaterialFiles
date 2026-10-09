@@ -51,32 +51,36 @@
                 android:id="@+id/breadcrumbLayout"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:paddingStart="36dp" />
+                android:paddingStart="40dp" />
 
             <!-- Storage analysis state indicator; overlaid at the very start edge, independent
                  of the breadcrumb scroll content which is padded and clipped to never overlap
                  it. -->
             <FrameLayout
                 android:id="@+id/storageAnalysisIndicator"
-                android:layout_width="18dp"
-                android:layout_height="18dp"
+                android:layout_width="32dp"
+                android:layout_height="32dp"
                 android:layout_gravity="start|center_vertical"
-                android:layout_marginStart="15dp"
+                android:layout_marginStart="8dp"
                 android:translationY="0.6dp"
-                android:visibility="gone">
+                android:foreground="@drawable/selectable_item_background_oval"
+                android:clickable="true"
+                android:focusable="true"
+                android:contentDescription="@string/file_list_action_storage_analysis"
+                android:visibility="visible">
 
                 <ImageView
                     android:id="@+id/storageAnalysisIcon"
                     android:layout_width="16dp"
                     android:layout_height="16dp"
                     android:layout_gravity="center"
-                    android:src="@drawable/pie_chart_icon_control_normal_24dp" />
+                    android:src="@drawable/pie_chart_x_icon_control_normal_24dp" />
 
                 <ProgressBar
                     android:id="@+id/storageAnalysisProgress"
                     style="?android:attr/progressBarStyleSmall"
-                    android:layout_width="16dp"
-                    android:layout_height="16dp"
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
                     android:layout_gravity="center"
                     android:indeterminateTint="?colorControlNormal"
                     android:visibility="gone" />

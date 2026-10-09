@@ -111,6 +111,127 @@ class FileListPaneFragment : Fragment(), FileListAdapter.Listener,
     // Called when the user taps this pane so the host can make it the active pane.
     var activeChangedListener: ((FileListPaneFragment) -> Unit)? = null
 
+    // Storage analysis state for this pane's directory, mirroring the host's single-column
+    // implementation so dual-pane and column views support the feature as well.
+    private val storageAnalysisComputer = StorageAnalysisComputer()
+
+    var storageAnalysisTotal: Long? = null
+        private set
+
+    var isStorageAnalysisComputing = false
+        private set
+
+    private var isStorageAnalysisPaused = false
+
+    private var forcedStorageAnalysisPath: Path? = null
+
+    val isStorageAnalysisActiveCompat: Boolean
+        get() {
+            if (!Settings.FILE_LIST_STORAGE_ANALYSIS.valueCompat || isStorageAnalysisPaused) {
+                return false
+            }
+            val path = runCatching { viewModel.currentPath }.getOrNull() ?: return false
+            return isStorageAnalysisPathAllowed(path) || forcedStorageAnalysisPath == path
+        }
+
+    // Short press forwarded from the host's breadcrumb indicator: start a forced analysis, stop
+    // the running one, or show the completed hint depending on this pane's state.
+    fun onStorageAnalysisIndicatorClicked() {
+        val computing = isStorageAnalysisActiveCompat && isStorageAnalysisComputing
+        val done = isStorageAnalysisActiveCompat && !isStorageAnalysisComputing &&
+            storageAnalysisTotal != null
+        when {
+            computing -> {
+                stopStorageAnalysis()
+                showToast(R.string.storage_analysis_stopped_toast)
+            }
+            done -> showToast(R.string.storage_analysis_complete_toast)
+            else -> {
+                startStorageAnalysisForced()
+                showToast(R.string.storage_analysis_started_toast)
+            }
+        }
+    }
+
+    private fun onStorageAnalysisChanged(enabled: Boolean) {
+        if (!enabled) {
+            storageAnalysisComputer.cancel()
+            storageAnalysisTotal = null
+            isStorageAnalysisComputing = false
+            isStorageAnalysisPaused = false
+            forcedStorageAnalysisPath = null
+            adapter.setStorageAnalysisEnabled(false)
+            subtitleListener?.invoke()
+            return
+        }
+        startStorageAnalysisIfEnabled()
+    }
+
+    private fun startStorageAnalysisIfEnabled() {
+        val enabled = isStorageAnalysisActiveCompat
+        if (adapter.storageAnalysisEnabled != enabled) {
+            adapter.setStorageAnalysisEnabled(enabled)
+        }
+        if (!enabled) {
+            storageAnalysisComputer.cancel()
+            storageAnalysisTotal = null
+            isStorageAnalysisComputing = false
+            subtitleListener?.invoke()
+            return
+        }
+        val stateful = runCatching { viewModel.fileListStateful }.getOrNull() ?: return
+        val files = stateful.value
+        if (files.isNullOrEmpty() || viewModel.searchState.isSearching) {
+            return
+        }
+        storageAnalysisTotal = null
+        isStorageAnalysisComputing = true
+        adapter.updateStorageAnalysisSizes(emptyMap(), 0)
+        subtitleListener?.invoke()
+        storageAnalysisComputer.start(viewModel.currentPath, storageAnalysisListener)
+    }
+
+    private val storageAnalysisListener = object : StorageAnalysisComputer.Listener {
+        override fun onSizes(childSizes: Map<Path, Long>, total: Long, complete: Boolean) {
+            if (!isStorageAnalysisActiveCompat) {
+                return
+            }
+            if (complete) {
+                storageAnalysisTotal = total
+                isStorageAnalysisComputing = false
+            } else if (storageAnalysisTotal != null) {
+                storageAnalysisTotal = null
+            }
+            adapter.updateStorageAnalysisSizes(childSizes, total)
+            if (complete) {
+                adapter.sortByStorageAnalysisSizes()
+                binding.paneRecyclerView.post { binding.paneRecyclerView.scrollToPosition(0) }
+            }
+            subtitleListener?.invoke()
+        }
+    }
+
+    private fun startStorageAnalysisForced() {
+        isStorageAnalysisPaused = false
+        val path = runCatching { viewModel.currentPath }.getOrNull() ?: return
+        forcedStorageAnalysisPath = path
+        if (Settings.FILE_LIST_STORAGE_ANALYSIS.valueCompat) {
+            startStorageAnalysisIfEnabled()
+        } else {
+            Settings.FILE_LIST_STORAGE_ANALYSIS.putValue(true)
+        }
+    }
+
+    private fun stopStorageAnalysis() {
+        isStorageAnalysisPaused = true
+        forcedStorageAnalysisPath = null
+        storageAnalysisComputer.cancel()
+        storageAnalysisTotal = null
+        isStorageAnalysisComputing = false
+        adapter.setStorageAnalysisEnabled(false)
+        subtitleListener?.invoke()
+    }
+
     val currentPath: Path
         get() = viewModel.currentPath
 
@@ -254,6 +375,15 @@ class FileListPaneFragment : Fragment(), FileListAdapter.Listener,
         }
         viewModel.fileListLiveData.observe(viewLifecycleOwner) { onFileListChanged(it) }
         Settings.FILE_LIST_SHOW_HIDDEN_FILES.observe(viewLifecycleOwner) { updateAdapterFileList() }
+        Settings.FILE_LIST_STORAGE_ANALYSIS.observe(viewLifecycleOwner) {
+            onStorageAnalysisChanged(it)
+        }
+        Settings.FILE_LIST_STORAGE_ANALYSIS_ONLY_USER_SUBDIRECTORIES.observe(viewLifecycleOwner) {
+            startStorageAnalysisIfEnabled()
+        }
+        Settings.FILE_LIST_STORAGE_ANALYSIS_REMOTE_DIRECTORIES.observe(viewLifecycleOwner) {
+            startStorageAnalysisIfEnabled()
+        }
         Settings.FILE_NAME_ELLIPSIZE.observe(viewLifecycleOwner) { adapter.nameEllipsize = it }
         Settings.FILE_LIST_GRID_COLUMNS.observe(viewLifecycleOwner) { updateSpanCount() }
         viewModel.pasteStateLiveData.observe(viewLifecycleOwner) { pasteStateListener?.invoke() }
@@ -316,6 +446,9 @@ class FileListPaneFragment : Fragment(), FileListAdapter.Listener,
         binding.paneEmptyView.fadeToVisibilityUnsafe(stateful is Success && !hasFiles)
         if (files != null) {
             updateAdapterFileList()
+            if (stateful is Success) {
+                startStorageAnalysisIfEnabled()
+            }
         } else {
             adapter.clear()
         }
@@ -331,6 +464,15 @@ class FileListPaneFragment : Fragment(), FileListAdapter.Listener,
             files = files.filterNot { it.isHidden }
         }
         adapter.replaceListAndIsSearching(files, viewModel.searchState.isSearching)
+        startStorageAnalysisIfEnabled()
+    }
+
+    override fun onDestroyView() {
+        super.onDestroyView()
+
+        storageAnalysisComputer.cancel()
+        storageAnalysisTotal = null
+        isStorageAnalysisComputing = false
     }
 
     fun navigateToPath(path: Path) {
