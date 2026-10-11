@@ -8,9 +8,6 @@ import android.os.Looper
 import androidx.media3.common.Effect
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MimeTypes
-import androidx.media3.effect.Brightness
-import androidx.media3.effect.Contrast
-import androidx.media3.effect.Crop
 import androidx.media3.effect.Presentation
 import androidx.media3.transformer.Composition
 import androidx.media3.transformer.DefaultEncoderFactory
@@ -102,7 +99,7 @@ class VideoTranscoder(
             val videoEncoderSettings = VideoEncoderSettings.Builder().apply {
                 params.bitRate?.let { setBitrate(it) }
                 params.bitrateMode?.let { setBitrateMode(it) }
-                params.avcProfile?.let {
+                params.profileLevel?.let {
                     setEncodingProfileLevel(it, VideoEncoderSettings.NO_VALUE)
                 }
                 setiFrameIntervalSeconds(2f)
@@ -135,21 +132,28 @@ class VideoTranscoder(
                     }
                 })
                 .build()
-            val clips = params.clips
-            if (clips.isNullOrEmpty()) {
-                transformer!!.start(
-                    buildEditedMediaItem(buildBaseEffects(), null),
-                    params.outputPath.toFile().path
+            transformer!!.start(
+                Composition.Builder(
+                    EditedMediaItemSequence.withAudioAndVideoFrom(
+                        listOf(buildEditedMediaItem(buildBaseEffects()))
+                    )
                 )
-            } else {
-                val editedMediaItems = clips.map { clip ->
-                    buildEditedMediaItem(buildEffectsFor(clip), clip)
-                }
-                val composition = Composition.Builder(
-                    EditedMediaItemSequence.withAudioAndVideoFrom(editedMediaItems)
-                ).build()
-                transformer!!.start(composition, params.outputPath.toFile().path)
-            }
+                    .setHdrMode(
+                        when {
+                            // SDR source, or HDR kept as HDR: no tone mapping, and never force
+                            // the OpenGL pipeline on content that does not need it.
+                            !params.sourceIsHdr || params.hdrKeep ->
+                                Composition.HDR_MODE_KEEP_HDR
+                            // HDR source converted to SDR: tone map through OpenGL, which is far
+                            // more widely supported than the MediaCodec tone-mapping path (that
+                            // one needs specific decoder support and fails at 0% on many devices).
+                            else ->
+                                Composition.HDR_MODE_TONE_MAP_HDR_TO_SDR_USING_OPEN_GL
+                        }
+                    )
+                    .build(),
+                params.outputPath.toFile().path
+            )
         } catch (e: Exception) {
             synchronized(lock) {
                 if (error == null) {
@@ -159,40 +163,18 @@ class VideoTranscoder(
         }
     }
 
-    // Base effects shared by all clips: the target resolution (short side), when requested.
+    // The target resolution (short side), when requested.
     private fun buildBaseEffects(): List<Effect> {
         val effects = mutableListOf<Effect>()
         params.shortSide?.let { effects.add(Presentation.createForShortSide(it)) }
         return effects
     }
 
-    private fun buildEffectsFor(clip: ClipEdit): List<Effect> {
-        val effects = buildBaseEffects().toMutableList()
-        if (clip.cropFraction > 0f) {
-            val fraction = clip.cropFraction.coerceIn(0f, 0.5f)
-            effects.add(Crop(fraction, fraction, 1f - fraction, 1f - fraction))
-        }
-        if (clip.brightness != 0f) {
-            effects.add(Brightness(clip.brightness.coerceIn(-1f, 1f)))
-        }
-        if (clip.contrast != 0f) {
-            effects.add(Contrast(clip.contrast.coerceIn(-1f, 1f)))
-        }
-        return effects
-    }
-
-    private fun buildEditedMediaItem(effects: List<Effect>, clip: ClipEdit?): EditedMediaItem {
-        val mediaItemBuilder = MediaItem.Builder()
+    private fun buildEditedMediaItem(effects: List<Effect>): EditedMediaItem {
+        val mediaItem = MediaItem.Builder()
             .setUri(Uri.fromFile(params.sourcePath.toFile()))
-        clip?.let {
-            mediaItemBuilder.setClippingConfiguration(
-                MediaItem.ClippingConfiguration.Builder()
-                    .setStartPositionUs(it.startUs)
-                    .setEndPositionUs(it.endUs)
-                    .build()
-            )
-        }
-        return EditedMediaItem.Builder(mediaItemBuilder.build()).apply {
+            .build()
+        return EditedMediaItem.Builder(mediaItem).apply {
             params.frameRate?.let { setFrameRate(it) }
             if (effects.isNotEmpty()) {
                 setEffects(Effects(emptyList(), effects))

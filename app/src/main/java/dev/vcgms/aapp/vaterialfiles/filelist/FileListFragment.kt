@@ -65,6 +65,7 @@ import com.google.android.material.color.MaterialColors
 import com.leinardi.android.speeddial.SpeedDialView
 import java8.nio.file.Path
 import java8.nio.file.Paths
+import java.net.URI
 import kotlin.math.roundToInt
 import kotlinx.parcelize.Parcelize
 import dev.vcgms.aapp.vaterialfiles.R
@@ -106,6 +107,7 @@ import dev.vcgms.aapp.vaterialfiles.provider.archive.createArchiveRootPath
 import dev.vcgms.aapp.vaterialfiles.provider.archive.isArchivePath
 import dev.vcgms.aapp.vaterialfiles.provider.linux.isLinuxPath
 import dev.vcgms.aapp.vaterialfiles.settings.Settings
+import dev.vcgms.aapp.vaterialfiles.storage.createOrLog
 import dev.vcgms.aapp.vaterialfiles.settings.FileNameEllipsize
 import dev.vcgms.aapp.vaterialfiles.terminal.Terminal
 import dev.vcgms.aapp.vaterialfiles.ui.AppBarLayoutExpandHackListener
@@ -121,6 +123,7 @@ import dev.vcgms.aapp.vaterialfiles.ui.SpeedDialViewOnBackPressedCallback
 import dev.vcgms.aapp.vaterialfiles.ui.ThemedFastScroller
 import dev.vcgms.aapp.vaterialfiles.ui.ToolbarActionMode
 import dev.vcgms.aapp.vaterialfiles.util.DebouncedRunnable
+import dev.vcgms.aapp.vaterialfiles.util.applyDescriptionAsTooltip
 import dev.vcgms.aapp.vaterialfiles.util.Failure
 import dev.vcgms.aapp.vaterialfiles.util.Loading
 import dev.vcgms.aapp.vaterialfiles.util.ParcelableArgs
@@ -400,7 +403,15 @@ class FileListFragment : Fragment(), BreadcrumbLayout.Listener, FileListAdapter.
         }
 
         if (!viewModel.hasTrail) {
-            var path = argsPath
+            val restoredPath = savedInstanceState?.getString(STATE_CURRENT_PATH_URI)
+                ?.let { uriString ->
+                    URI::class.createOrLog(uriString)?.let { uri ->
+                        runCatching { Paths.get(uri) }.getOrNull()
+                    }
+                }
+            // A path saved before recreation wins over the launch intent, because it reflects
+            // where the user actually was.
+            var path = restoredPath ?: argsPath
             val intent = args.intent
             var pickOptions: PickOptions? = null
             when (val action = intent.action) {
@@ -439,13 +450,15 @@ class FileListFragment : Fragment(), BreadcrumbLayout.Listener, FileListAdapter.
                     )
                 }
                 ACTION_VIEW_DOWNLOADS ->
-                    path = Paths.get(
-                        Environment.getExternalStoragePublicDirectory(
-                            Environment.DIRECTORY_DOWNLOADS
-                        ).path
-                    )
+                    if (restoredPath == null) {
+                        path = Paths.get(
+                            Environment.getExternalStoragePublicDirectory(
+                                Environment.DIRECTORY_DOWNLOADS
+                            ).path
+                        )
+                    }
                 else ->
-                    if (path != null) {
+                    if (restoredPath == null && path != null) {
                         val mimeType = intent.type?.asMimeTypeOrNull()
                         if (mimeType != null && path.isArchiveFile(mimeType)) {
                             path = path.createArchiveRootPath()
@@ -626,16 +639,51 @@ class FileListFragment : Fragment(), BreadcrumbLayout.Listener, FileListAdapter.
 
     private var overflowPopup: PopupWindow? = null
 
+    // Frames only the toggle row's icon (a filled highlight when on, a rounded outline when off)
+    // so the on/off state reads at a glance, while the label stays styled like a normal menu item.
+    private fun applyToggleRowStyle(row: View, checked: Boolean) {
+        if (row !is ViewGroup) {
+            return
+        }
+        val density = resources.displayMetrics.density
+        val controlNormal =
+            MaterialColors.getColor(row, android.R.attr.colorControlNormal, Color.BLACK)
+        val surface = MaterialColors.getColor(
+            row, com.google.android.material.R.attr.colorSurface, Color.WHITE
+        )
+        for (index in 0 until row.childCount) {
+            val child = row.getChildAt(index)
+            if (child is ImageView) {
+                child.background = GradientDrawable().apply {
+                    cornerRadius = 8 * density
+                    if (checked) {
+                        setColor(controlNormal)
+                    } else {
+                        setColor(Color.TRANSPARENT)
+                        setStroke((1.5f * density).roundToInt(), controlNormal)
+                    }
+                }
+                child.imageTintList =
+                    ColorStateList.valueOf(if (checked) surface else controlNormal)
+            }
+        }
+    }
+
     private fun showOverflowMenu() {
         overflowPopup?.dismiss()
         val overflowBinding = FileListOverflowMenuBinding.inflate(layoutInflater)
+        overflowBinding.root.applyDescriptionAsTooltip()
         val pickOptions = viewModel.pickOptions
         overflowBinding.overflowSelectAll.isVisible =
             !isPaneMode && (pickOptions == null || pickOptions.allowMultiple)
-        overflowBinding.overflowShowHiddenCheck.isVisible =
+        applyToggleRowStyle(
+            overflowBinding.overflowShowHiddenFiles,
             Settings.FILE_LIST_SHOW_HIDDEN_FILES.valueCompat
-        overflowBinding.overflowStorageAnalysisCheck.isVisible =
+        )
+        applyToggleRowStyle(
+            overflowBinding.overflowStorageAnalysis,
             Settings.FILE_LIST_STORAGE_ANALYSIS.valueCompat
+        )
         fun bindClick(view: View, action: () -> Unit) {
             view.setOnClickListener {
                 overflowPopup?.dismiss()
@@ -673,6 +721,7 @@ class FileListFragment : Fragment(), BreadcrumbLayout.Listener, FileListAdapter.
     private fun showViewSortMenu() {
         viewSortPopup?.dismiss()
         val viewSortBinding = FileListViewSortMenuBinding.inflate(layoutInflater)
+        viewSortBinding.root.applyDescriptionAsTooltip()
         // The three view modes are mutually exclusive; the selected one is rendered inverted
         // (filled background + surface-colored icon) to make the current mode obvious.
         fun tintViewButton(button: ImageButton, checked: Boolean) {
@@ -755,9 +804,15 @@ class FileListFragment : Fragment(), BreadcrumbLayout.Listener, FileListAdapter.
             tintViewText(
                 viewSortBinding.vsSortByLastModified, sortOptions.by == By.LAST_MODIFIED
             )
-            viewSortBinding.vsCheckAscending.isVisible = sortOptions.order == Order.ASCENDING
-            viewSortBinding.vsCheckDirectoriesFirst.isVisible = sortOptions.isDirectoriesFirst
-            viewSortBinding.vsCheckPathSpecific.isVisible = activeViewModel.isViewSortPathSpecific
+            applyToggleRowStyle(
+                viewSortBinding.vsSortOrderAscending, sortOptions.order == Order.ASCENDING
+            )
+            applyToggleRowStyle(
+                viewSortBinding.vsSortDirectoriesFirst, sortOptions.isDirectoriesFirst
+            )
+            applyToggleRowStyle(
+                viewSortBinding.vsViewSortPathSpecific, activeViewModel.isViewSortPathSpecific
+            )
         }
         updateSortChecks()
         viewSortBinding.vsSortByName.setOnClickListener {
@@ -811,6 +866,7 @@ class FileListFragment : Fragment(), BreadcrumbLayout.Listener, FileListAdapter.
     private fun showSelectionOverflowMenu() {
         selectionOverflowPopup?.dismiss()
         val selectionBinding = FileListSelectOverflowMenuBinding.inflate(layoutInflater)
+        selectionBinding.root.applyDescriptionAsTooltip()
         fun bindClick(view: View, action: () -> Unit) {
             view.setOnClickListener {
                 selectionOverflowPopup?.dismiss()
@@ -870,6 +926,16 @@ class FileListFragment : Fragment(), BreadcrumbLayout.Listener, FileListAdapter.
             }
         }
         updateSpanCount()
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        // The browsed directory normally survives activity recreation (e.g. a day/night switch)
+        // through the view model; persist it as well so that the list can never fall back to the
+        // default directory even if the view model does not survive.
+        runCatching { viewModel.currentPath.toUri().toString() }.getOrNull()?.let {
+            outState.putString(STATE_CURRENT_PATH_URI, it)
+        }
     }
 
     private fun onCurrentPathChanged(path: Path) {
@@ -2312,8 +2378,10 @@ class FileListFragment : Fragment(), BreadcrumbLayout.Listener, FileListAdapter.
         val path = file.path
         val mimeType = file.mimeType
         // Open images in the built-in viewer explicitly; an implicit VIEW intent could be
-        // routed to the system gallery if it is the device default handler for image/*.
-        if (mimeType.isImage && !path.isArchivePath) {
+        // routed to the system gallery if it is the device default handler for image/*. The
+        // explicit "open with" action must still show the system chooser, so only the default
+        // open takes the internal viewer.
+        if (!withChooser && mimeType.isImage && !path.isArchivePath) {
             startImageViewer(requireContext(), adapterFileList(), path)
             return
         }
@@ -2661,6 +2729,7 @@ class FileListFragment : Fragment(), BreadcrumbLayout.Listener, FileListAdapter.
         private const val ACTION_VIEW_DOWNLOADS =
             "dev.vcgms.aapp.vaterialfiles.intent.action.VIEW_DOWNLOADS"
 
+        private const val STATE_CURRENT_PATH_URI = "FileListFragment.currentPathUri"
     }
 
     private class RequestAllFilesAccessContract : ActivityResultContract<Unit, Boolean>() {

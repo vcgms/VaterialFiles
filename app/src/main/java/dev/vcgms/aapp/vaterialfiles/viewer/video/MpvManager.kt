@@ -25,16 +25,30 @@ object MpvManager {
         // Allow the video output to drop frames to stay in sync, which avoids the stutter
         // otherwise caused by the display refresh rate.
         mpv.setOptionString("framedrop", "vo")
-        // The video surface is SDR: tell mpv the output colorspace explicitly so HDR10/HLG/
-        // Dolby Vision content is tone mapped down instead of being output raw (which shows
-        // washed-out or wrong colors on an SDR surface). A fixed target peak and metadata-based
-        // scene peak avoid overexposure caused by auto peak computation.
-        mpv.setOptionString("target-colorspace-hint", "bt.709")
-        mpv.setOptionString("target-peak", "100")
-        mpv.setOptionString("hdr-compute-peak", "no")
-        mpv.setOptionString("tone-mapping", "bt.2446a")
+        // Pin the player volume at 100: loudness is driven by the system media volume (the
+        // right-half swipe in the viewer), so the player never attenuates on top of it.
+        mpv.setOptionString("volume", "100")
         mpv.init()
         isCreated = true
+    }
+
+    // Applies the output color options for the file about to be loaded. The video surface is SDR
+    // and the display hint is disabled so HDR-capable panels are never switched into a mode that
+    // mis-renders SDR levels. HDR10/HLG/Dolby sources are tone mapped down with a fixed target
+    // peak and metadata-based scene peak (auto peak computation overexposes bright or
+    // dynamic-metadata sources); SDR sources keep mpv's own defaults so their levels stay
+    // untouched.
+    fun applyColorOptions(hdr: Boolean) {
+        mpv.setPropertyString("target-colorspace-hint", "no")
+        if (hdr) {
+            mpv.setPropertyString("target-peak", "100")
+            mpv.setPropertyString("hdr-compute-peak", "no")
+            mpv.setPropertyString("tone-mapping", "bt.2446a")
+        } else {
+            mpv.setPropertyString("target-peak", "auto")
+            mpv.setPropertyString("hdr-compute-peak", "auto")
+            mpv.setPropertyString("tone-mapping", "auto")
+        }
     }
 
     fun destroy() {

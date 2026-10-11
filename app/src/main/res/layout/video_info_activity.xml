@@ -58,7 +58,10 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:padding="@dimen/screen_edge_margin" />
+                android:paddingStart="@dimen/screen_edge_margin"
+                android:paddingEnd="@dimen/screen_edge_margin"
+                android:paddingTop="4dp"
+                android:paddingBottom="@dimen/screen_edge_margin" />
         </me.zhanghai.android.fastscroll.FastScrollNestedScrollView>
     </dev.vcgms.aapp.vaterialfiles.ui.CoordinatorScrollingFrameLayout>
 </androidx.coordinatorlayout.widget.CoordinatorLayout>

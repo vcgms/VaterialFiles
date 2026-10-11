@@ -10,6 +10,7 @@ import androidx.core.view.children
 import androidx.core.view.isGone
 import androidx.core.view.isInvisible
 import androidx.core.view.isVisible
+import com.google.android.material.chip.ChipGroup
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
@@ -236,4 +237,26 @@ fun View.showSoftInput() {
 
 fun View.hideSoftInput() {
     inputMethodManager.hideSoftInputFromWindow(windowToken, InputMethodManager.HIDE_NOT_ALWAYS)
+}
+
+// The framework's ViewGroup.setEnabled does not recurse into children (only some widgets such as
+// TextInputLayout override it to do so), so disabling a ChipGroup leaves every chip clickable.
+// Toggle the group and each of its chips explicitly to lock a whole chip row at once.
+fun ChipGroup.setEnabledWithChildren(enabled: Boolean) {
+    isEnabled = enabled
+    children.forEach { it.isEnabled = enabled }
+}
+
+// Mirrors a view's content description into its long-press tooltip so icon-only buttons reveal
+// their function on long press, the way toolbar action buttons already do (AppCompat tooltips
+// those from the menu item title). Recurses to any descendant that has a description and no
+// tooltip yet, leaving text-bearing views untouched.
+fun View.applyDescriptionAsTooltip() {
+    val description = contentDescription
+    if (description != null && tooltipText == null) {
+        tooltipText = description
+    }
+    if (this is ViewGroup) {
+        children.forEach { it.applyDescriptionAsTooltip() }
+    }
 }

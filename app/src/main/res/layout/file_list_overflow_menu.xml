@@ -116,29 +116,23 @@
         android:background="?selectableItemBackground"
         android:clickable="true"
         android:focusable="true"
-        android:paddingStart="12dp"
+        android:paddingStart="8dp"
         android:paddingEnd="12dp">
 
         <ImageView
-            android:layout_width="24dp"
-            android:layout_height="24dp"
+            android:layout_width="32dp"
+            android:layout_height="32dp"
+            android:padding="4dp"
             android:src="@drawable/visibility_icon_control_normal_24dp" />
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginStart="12dp"
+            android:layout_marginStart="8dp"
             android:ellipsize="end"
             android:maxLines="1"
             android:text="@string/file_list_action_show_hidden_files"
             android:textAppearance="?textAppearanceBody2" />
-
-        <ImageView
-            android:id="@+id/overflow_show_hidden_check"
-            android:layout_width="24dp"
-            android:layout_height="24dp"
-            android:visibility="gone"
-            android:src="@drawable/check_icon_control_normal_24dp" />
     </LinearLayout>
 
     <LinearLayout
@@ -150,29 +144,23 @@
         android:background="?selectableItemBackground"
         android:clickable="true"
         android:focusable="true"
-        android:paddingStart="12dp"
+        android:paddingStart="8dp"
         android:paddingEnd="12dp">
 
         <ImageView
-            android:layout_width="24dp"
-            android:layout_height="24dp"
+            android:layout_width="32dp"
+            android:layout_height="32dp"
+            android:padding="4dp"
             android:src="@drawable/pie_chart_icon_control_normal_24dp" />
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginStart="12dp"
+            android:layout_marginStart="8dp"
             android:ellipsize="end"
             android:maxLines="1"
             android:text="@string/file_list_action_storage_analysis"
             android:textAppearance="?textAppearanceBody2" />
-
-        <ImageView
-            android:id="@+id/overflow_storage_analysis_check"
-            android:layout_width="24dp"
-            android:layout_height="24dp"
-            android:visibility="gone"
-            android:src="@drawable/check_icon_control_normal_24dp" />
     </LinearLayout>
 
     <LinearLayout

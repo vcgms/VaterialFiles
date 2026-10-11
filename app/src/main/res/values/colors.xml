@@ -37,4 +37,6 @@
     <color name="file_icon_red">#EA4335</color>
     <color name="file_icon_deep_red">#DB4437</color>
     <color name="file_icon_yellow">#F4B400</color>
+    <!-- Dark yellow that stays legible on the light app bar surface. -->
+    <color name="encoder_software_warning">#8A5A00</color>
 </resources>

@@ -17,7 +17,14 @@ data class VideoTranscodeParams(
     val bitRate: Int?,
     val frameRate: Int?,
     val bitrateMode: Int?,
-    val avcProfile: Int?,
-    // Timeline clips; when non-null and non-empty the export concatenates the clips in order.
-    val clips: List<ClipEdit>? = null,
+    // Encoder profile level (AVC profiles, or an HEVC Main 10 profile when keeping HDR); null
+    // lets the encoder pick its default.
+    val profileLevel: Int?,
+    // Whether the source carries HDR; only an HDR source that is not kept as HDR needs tone
+    // mapping, so an SDR source never goes through the HDR-to-SDR (OpenGL) pipeline.
+    val sourceIsHdr: Boolean,
+    // Keep the source's HDR transfer characteristics instead of tone mapping to SDR.
+    val hdrKeep: Boolean,
+    // Delete the source file once the re-encoded output has been written successfully.
+    val deleteSource: Boolean,
 )

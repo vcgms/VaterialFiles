@@ -6,6 +6,7 @@ import android.os.Bundle
 import android.view.Menu
 import android.view.MenuItem
 import androidx.core.view.isVisible
+import androidx.core.widget.doAfterTextChanged
 import androidx.lifecycle.lifecycleScope
 import java.util.Random
 import kotlin.math.max
@@ -22,10 +23,11 @@ import dev.vcgms.aapp.vaterialfiles.databinding.ImageReencodeActivityBinding
 import dev.vcgms.aapp.vaterialfiles.file.FileItem
 import dev.vcgms.aapp.vaterialfiles.filejob.FileJobService
 import dev.vcgms.aapp.vaterialfiles.filelist.name
-import dev.vcgms.aapp.vaterialfiles.provider.common.exists
+import dev.vcgms.aapp.vaterialfiles.util.OutputNames
+import dev.vcgms.aapp.vaterialfiles.util.OutputNamingMode
 import dev.vcgms.aapp.vaterialfiles.util.asFileName
 import dev.vcgms.aapp.vaterialfiles.util.layoutInflater
-import dev.vcgms.aapp.vaterialfiles.util.setForceShowIcons
+import dev.vcgms.aapp.vaterialfiles.util.setEnabledWithChildren
 import dev.vcgms.aapp.vaterialfiles.util.showToast
 import dev.vcgms.aapp.vaterialfiles.videoedit.MediaCodecUtils
 
@@ -71,8 +73,12 @@ class ImageReencodeActivity : AppActivity() {
         }
         binding.formatPng.isChecked = true
         binding.rotation0.isChecked = true
-        binding.namingAddSuffix.isChecked = true
+        binding.namingKeepOriginal.isChecked = true
         binding.suffixEdit.setText(DEFAULT_SUFFIX)
+        // Prefill the custom-name field with the original file name so the user only edits it.
+        if (files.size == 1) {
+            binding.customNameEdit.setText(files[0].name)
+        }
         updateVisibility()
         binding.qualitySlider.addOnChangeListener { _, value, _ ->
             binding.qualityValueText.text = getString(
@@ -84,6 +90,9 @@ class ImageReencodeActivity : AppActivity() {
         )
         binding.formatGroup.setOnCheckedStateChangeListener { _, _ -> updateVisibility() }
         binding.namingGroup.setOnCheckedStateChangeListener { _, _ -> updateVisibility() }
+        binding.suffixEdit.doAfterTextChanged { updateNameUi() }
+        binding.customNameEdit.doAfterTextChanged { updateNameUi() }
+        binding.deleteSourceSwitch.setOnCheckedChangeListener { _, _ -> updateNameUi() }
         binding.resolutionSlider.addOnChangeListener { _, value, _ ->
             binding.resolutionValueText.text = getString(
                 R.string.image_reencode_quality_format, value.roundToInt()
@@ -105,7 +114,6 @@ class ImageReencodeActivity : AppActivity() {
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
         menuInflater.inflate(R.menu.image_reencode, menu)
-        menu.setForceShowIcons()
         return super.onCreateOptionsMenu(menu)
     }
 
@@ -198,6 +206,41 @@ class ImageReencodeActivity : AppActivity() {
         binding.qualityNoteText.isVisible = isPng
         binding.heicNoteText.isVisible = format == ImageReencodeFormat.HEIC
         binding.suffixLayout.isVisible = binding.namingAddSuffix.isChecked
+        binding.customNameLayout.isVisible = binding.namingCustom.isChecked
+        updateNameUi()
+    }
+
+    private fun namingMode(): OutputNamingMode = when {
+        binding.namingAddSuffix.isChecked -> OutputNamingMode.SUFFIX
+        binding.namingCustom.isChecked -> OutputNamingMode.CUSTOM
+        else -> OutputNamingMode.KEEP
+    }
+
+    // Shows the effective output name and the automatic-renaming hint for a single file; in a
+    // batch every file resolves its own name, so both stay hidden.
+    private fun updateNameUi() {
+        if (files.size != 1) {
+            binding.resolvedNameText.isVisible = false
+            binding.conflictHintText.isVisible = false
+            return
+        }
+        val file = files[0]
+        val mode = namingMode()
+        val resolved = OutputNames.resolvedName(
+            baseName = file.name.asFileName().baseName,
+            extension = extensionForFormat(selectedFormat()),
+            mode = mode,
+            suffix = binding.suffixEdit.text?.toString()?.trim().orEmpty(),
+            customName = binding.customNameEdit.text?.toString()?.trim().orEmpty()
+        )
+        binding.resolvedNameText.isVisible = mode != OutputNamingMode.CUSTOM
+        if (mode != OutputNamingMode.CUSTOM) {
+            binding.resolvedNameText.text = getString(
+                R.string.image_reencode_resolved_name, resolved
+            )
+        }
+        binding.conflictHintText.isVisible =
+            resolved == file.name && !binding.deleteSourceSwitch.isChecked
     }
 
     private fun startReencode() {
@@ -206,10 +249,15 @@ class ImageReencodeActivity : AppActivity() {
             showToast(R.string.image_reencode_heic_unsupported)
             return
         }
-        val keepOriginal = binding.namingKeepOriginal.isChecked
         val suffix = binding.suffixEdit.text?.toString()?.trim().orEmpty()
-        if (!keepOriginal && suffix.isEmpty()) {
+        val customName = binding.customNameEdit.text?.toString()?.trim().orEmpty()
+        val mode = namingMode()
+        if (mode == OutputNamingMode.SUFFIX && suffix.isEmpty()) {
             showToast(R.string.image_reencode_suffix_empty)
+            return
+        }
+        if (mode == OutputNamingMode.CUSTOM && customName.isEmpty()) {
+            showToast(R.string.image_reencode_output_name_empty)
             return
         }
         val quality = binding.qualitySlider.value.roundToInt()
@@ -220,22 +268,15 @@ class ImageReencodeActivity : AppActivity() {
         val extension = extensionForFormat(format)
 
         val targets = files.map { file ->
-            val baseName = file.name.asFileName().baseName
-            val outputName = if (keepOriginal) {
-                baseName + extension
-            } else {
-                baseName + suffix + extension
-            }
-            file to file.path.parent.resolve(outputName)
-        }
-        // For a single file, surface an existing-output conflict immediately (an in-place
-        // re-encode, where the output equals the source, is allowed and handled by the job).
-        if (targets.size == 1) {
-            val (file, outputPath) = targets[0]
-            if (outputPath != file.path && outputPath.exists()) {
-                showToast(R.string.image_reencode_output_exists)
-                return
-            }
+            val outputName = OutputNames.resolvedName(
+                file.name.asFileName().baseName, extension, mode, suffix, customName
+            )
+            // In delete-source mode an identical name means an in-place overwrite; otherwise avoid
+            // colliding with any existing file by appending _1, _2, ... as needed.
+            val outputPath = OutputNames.resolveUnique(
+                file.path.parent, outputName, if (deleteSource) file.path else null
+            )
+            file to outputPath
         }
 
         val total = targets.size
@@ -321,14 +362,22 @@ class ImageReencodeActivity : AppActivity() {
 
     private fun setReencodingUi(reencoding: Boolean) {
         isReencoding = reencoding
-        binding.namingGroup.isEnabled = !reencoding
-        binding.suffixLayout.isEnabled = !reencoding
-        binding.formatGroup.isEnabled = !reencoding
-        binding.rotationGroup.isEnabled = !reencoding
-        binding.resolutionSlider.isEnabled = !reencoding
-        binding.qualitySlider.isEnabled = !reencoding
-        binding.deleteSourceSwitch.isEnabled = !reencoding
-        binding.preserveTimestampsSwitch.isEnabled = !reencoding
+        val enabled = !reencoding
+        // ChipGroup does not propagate setEnabled to its chips, so toggle the chips explicitly;
+        // TextInputLayout, Slider and Switch disable themselves. Only the toolbar stays interactive.
+        binding.namingGroup.setEnabledWithChildren(enabled)
+        binding.formatGroup.setEnabledWithChildren(enabled)
+        binding.rotationGroup.setEnabledWithChildren(enabled)
+        binding.suffixLayout.isEnabled = enabled
+        binding.customNameLayout.isEnabled = enabled
+        binding.resolutionSlider.isEnabled = enabled
+        binding.qualitySlider.isEnabled = enabled
+        binding.deleteSourceSwitch.isEnabled = enabled
+        binding.preserveTimestampsSwitch.isEnabled = enabled
+        if (enabled) {
+            // The blanket re-enable also revived the conditionally disabled HEIC chip.
+            binding.formatHeic.isEnabled = MediaCodecUtils.hasEncoder(MIME_HEIC)
+        }
         invalidateOptionsMenu()
         if (!reencoding) {
             binding.progressIndicator.isVisible = false

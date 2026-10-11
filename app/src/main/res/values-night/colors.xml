@@ -23,4 +23,6 @@
     <color name="file_icon_red">#F28B82</color>
     <color name="file_icon_deep_red">#E8877F</color>
     <color name="file_icon_yellow">#F8CF5C</color>
+    <!-- Light amber that stays legible on the dark app bar surface. -->
+    <color name="encoder_software_warning">#FFC94D</color>
 </resources>

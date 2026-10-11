@@ -7,11 +7,13 @@ import android.os.Bundle
 import android.view.Menu
 import android.view.MenuItem
 import androidx.core.view.isVisible
+import androidx.core.widget.doAfterTextChanged
 import androidx.lifecycle.lifecycleScope
 import androidx.media3.common.MimeTypes
 import java8.nio.file.Path
 import java.util.Random
 import kotlin.math.min
+import kotlin.math.roundToInt
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
@@ -22,18 +24,20 @@ import dev.vcgms.aapp.vaterialfiles.databinding.VideoTranscodeActivityBinding
 import dev.vcgms.aapp.vaterialfiles.file.FileItem
 import dev.vcgms.aapp.vaterialfiles.filejob.FileJobService
 import dev.vcgms.aapp.vaterialfiles.filelist.name
-import dev.vcgms.aapp.vaterialfiles.provider.common.exists
 import dev.vcgms.aapp.vaterialfiles.provider.linux.isLinuxPath
+import dev.vcgms.aapp.vaterialfiles.util.OutputNames
+import dev.vcgms.aapp.vaterialfiles.util.OutputNamingMode
 import dev.vcgms.aapp.vaterialfiles.util.asFileName
+import dev.vcgms.aapp.vaterialfiles.util.getColorByAttr
 import dev.vcgms.aapp.vaterialfiles.util.layoutInflater
-import dev.vcgms.aapp.vaterialfiles.util.setForceShowIcons
+import dev.vcgms.aapp.vaterialfiles.util.setEnabledWithChildren
 import dev.vcgms.aapp.vaterialfiles.util.showToast
 import dev.vcgms.aapp.vaterialfiles.videoinfo.VideoInfo
 import dev.vcgms.aapp.vaterialfiles.videoinfo.VideoInfoLoader
 
-// The re-encode page: sets output file name, container/format-independent video encoder settings
-// (codec, resolution, bit rate, frame rate, rate control and AVC profile) and runs the export
-// with in-page progress backed by a foreground service job.
+// The re-encode page: sets the save mode, output naming, codec, resolution, bit rate, frame rate,
+// HDR handling and advanced encoder settings, and runs the export with in-page progress backed by
+// a foreground service job.
 class VideoTranscodeActivity : AppActivity() {
     private lateinit var binding: VideoTranscodeActivityBinding
 
@@ -46,9 +50,6 @@ class VideoTranscodeActivity : AppActivity() {
     private var progressJob: Job? = null
 
     private var isTranscoding = false
-
-    // Timeline clips passed in from the video edit page; null means export the whole video.
-    private var clips: List<ClipEdit>? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -70,24 +71,46 @@ class VideoTranscodeActivity : AppActivity() {
             finish()
             return
         }
-        if (!MediaCodecUtils.hasHardwareEncoder(MimeTypes.VIDEO_H265)) {
+        if (!MediaCodecUtils.hasEncoder(MimeTypes.VIDEO_H265)) {
             binding.videoCodecHevc.isEnabled = false
         }
-        binding.outputNameEdit.setText("${file.name.asFileName().baseName}_reencoded.mp4")
-        binding.videoCodecAvc.isChecked = true
+        // HEVC is the default codec; fall back to AVC when HEVC cannot be encoded at all.
+        binding.videoCodecHevc.isChecked = binding.videoCodecHevc.isEnabled
+        binding.videoCodecAvc.isChecked = !binding.videoCodecHevc.isChecked
+        binding.saveKeep.isChecked = true
+        binding.nameKeep.isChecked = true
         binding.resolutionOriginal.isChecked = true
-        binding.bitRateOriginal.isChecked = true
+        binding.bitRatePreset.isChecked = true
         binding.frameRateOriginal.isChecked = true
         binding.bitrateModeVbr.isChecked = true
         binding.profileMain.isChecked = true
-        // Preset resolutions need the source dimensions; disable them until they are known.
-        setPresetResolutionsEnabled(false)
+        binding.hdrKeep.isChecked = true
+        binding.suffixEdit.setText(DEFAULT_SUFFIX)
+        // Prefill the custom-name field with the original file name so the user only edits it.
+        binding.outputNameEdit.setText(file.name)
+        // Preset resolutions and frame rates need the source parameters; hide them until known.
+        setSourceDependentChipsVisible(false)
         binding.videoCodecGroup.setOnCheckedStateChangeListener { _, _ ->
             updateProfileGroupVisibility()
+            updateHdrState()
+            updateEncoderSubtitle()
         }
+        binding.hdrGroup.setOnCheckedStateChangeListener { _, _ ->
+            updateHdrState()
+            updateEncoderSubtitle()
+        }
+        binding.saveModeGroup.setOnCheckedStateChangeListener { _, _ -> updateNameUi() }
+        binding.fileNameGroup.setOnCheckedStateChangeListener { _, _ -> updateNameUi() }
+        binding.suffixEdit.doAfterTextChanged { updateNameUi() }
+        binding.outputNameEdit.doAfterTextChanged { updateNameUi() }
+        binding.resolutionGroup.setOnCheckedStateChangeListener { _, _ -> updateResolutionValue() }
+        binding.bitRateGroup.setOnCheckedStateChangeListener { _, _ -> updateBitRateUi() }
+        binding.bitRateSlider.addOnChangeListener { _, value, _ -> updateBitRateSliderText(value) }
         updateProfileGroupVisibility()
-        clips = intent.getParcelableArrayListExtra(EXTRA_CLIPS, ClipEdit::class.java)?.toList()
-        updateTimelineSummary()
+        updateNameUi()
+        updateBitRateUi()
+        updateBitRateSliderText(binding.bitRateSlider.value)
+        updateEncoderSubtitle()
         loadSourceVideoInfo(file.path)
     }
 
@@ -98,7 +121,6 @@ class VideoTranscodeActivity : AppActivity() {
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
         menuInflater.inflate(R.menu.video_transcode, menu)
-        menu.setForceShowIcons()
         return super.onCreateOptionsMenu(menu)
     }
 
@@ -135,26 +157,124 @@ class VideoTranscodeActivity : AppActivity() {
                 null
             }
             sourceVideoInfo = info
-            setPresetResolutionsEnabled(info != null)
+            updateSourceDependentUi()
         }
     }
 
-    private fun updateTimelineSummary() {
-        val clips = clips
-        if (clips.isNullOrEmpty()) {
-            binding.timelineSummaryText.isVisible = false
+    private val sourceTrack get() = sourceVideoInfo?.videoTracks?.firstOrNull()
+
+    private val sourceShortSide: Int?
+        get() {
+            val track = sourceTrack ?: return null
+            val width = track.width ?: return null
+            val height = track.height ?: return null
+            if (width <= 0 || height <= 0) {
+                return null
+            }
+            return min(width, height)
+        }
+
+    private val sourceIsHdr: Boolean
+        get() {
+            val track = sourceTrack ?: return false
+            val transfer = track.colorTransfer
+            return transfer == "PQ (HDR10)" || transfer == "HLG"
+                || track.mime.contains("dolby", ignoreCase = true)
+        }
+
+    // HLG sources are kept as HLG (HEVC Main10); PQ and Dolby Vision sources are kept as HDR10
+    // (HEVC Main10 HDR10). Dolby Vision is never re-emitted: Media3 encodes to HEVC and keeps only
+    // the base-layer transfer, dropping the Dolby Vision RPU dynamic metadata.
+    private val sourceIsHlg: Boolean
+        get() = sourceTrack?.colorTransfer == "HLG"
+
+    private fun updateSourceDependentUi() {
+        val info = sourceVideoInfo
+        val shortSide = sourceShortSide
+        setSourceDependentChipsVisible(info != null)
+        if (info != null) {
+            // Never offer presets above the source resolution or frame rate.
+            if (shortSide != null) {
+                binding.resolution2160p.isVisible = PRESET_2160P <= shortSide
+                binding.resolution1440p.isVisible = PRESET_1440P <= shortSide
+                binding.resolution1080p.isVisible = PRESET_1080P <= shortSide
+                binding.resolution720p.isVisible = PRESET_720P <= shortSide
+                binding.resolution480p.isVisible = PRESET_480P <= shortSide
+            }
+            val frameRate = sourceTrack?.frameRate
+            if (frameRate != null && frameRate > 0f) {
+                binding.frameRate60.isVisible = 60 <= frameRate + 0.5f
+                binding.frameRate30.isVisible = 30 <= frameRate + 0.5f
+                binding.frameRate25.isVisible = 25 <= frameRate + 0.5f
+                binding.frameRate24.isVisible = 24 <= frameRate + 0.5f
+                binding.frameRateValueText.text = getString(
+                    R.string.video_transcode_frame_rate_source, formatFrameRate(frameRate)
+                )
+            }
+            val bitRate = sourceTrack?.bitRate ?: info.overallBitRate
+            if (bitRate != null && bitRate > 0) {
+                binding.bitRateValueText.isVisible = true
+                binding.bitRateValueText.text = getString(
+                    R.string.video_transcode_bitrate_source, formatBitRate(bitRate)
+                )
+            }
+        }
+        updateResolutionValue()
+        updateBitRateUi()
+        updateHdrState()
+        updateNameUi()
+    }
+
+    private fun setSourceDependentChipsVisible(visible: Boolean) {
+        binding.resolution2160p.isVisible = visible
+        binding.resolution1440p.isVisible = visible
+        binding.resolution1080p.isVisible = visible
+        binding.resolution720p.isVisible = visible
+        binding.resolution480p.isVisible = visible
+    }
+
+    // The output pixel size for the selected resolution preset, preserving the source aspect
+    // ratio; null when the source dimensions are not known yet.
+    private fun computeOutputResolution(): Pair<Int, Int>? {
+        val track = sourceTrack ?: return null
+        val width = track.width ?: return null
+        val height = track.height ?: return null
+        if (width <= 0 || height <= 0) {
+            return null
+        }
+        val preset = selectedPresetShortSide() ?: return width to height
+        return if (width >= height) {
+            toEven(width.toFloat() / height * preset) to preset
         } else {
-            binding.timelineSummaryText.isVisible = true
-            binding.timelineSummaryText.text = getString(
-                R.string.video_transcode_timeline_summary, clips.size
-            )
+            preset to toEven(height.toFloat() / width * preset)
         }
     }
 
-    private fun setPresetResolutionsEnabled(enabled: Boolean) {
-        binding.resolution1080p.isEnabled = enabled
-        binding.resolution720p.isEnabled = enabled
-        binding.resolution480p.isEnabled = enabled
+    private fun updateResolutionValue() {
+        val resolution = computeOutputResolution()
+        if (resolution == null) {
+            binding.resolutionValueText.isVisible = false
+            return
+        }
+        binding.resolutionValueText.isVisible = true
+        binding.resolutionValueText.text = getString(
+            R.string.video_transcode_resolution_value, resolution.first, resolution.second
+        )
+    }
+
+    private fun toEven(value: Float): Int = (value.roundToInt() + 1) / 2 * 2
+
+    private fun updateBitRateUi() {
+        val isPreset = binding.bitRatePreset.isChecked
+        // The source bit rate stays visible in every mode as a reference.
+        binding.bitRateSliderContainer.isVisible = isPreset
+        binding.bitRateCustomLayout.isVisible = binding.bitRateCustom.isChecked
+    }
+
+    private fun updateBitRateSliderText(value: Float) {
+        binding.bitRateSliderText.text = getString(
+            R.string.video_transcode_bitrate_slider_format, value.roundToInt()
+        )
     }
 
     private fun updateProfileGroupVisibility() {
@@ -163,26 +283,124 @@ class VideoTranscodeActivity : AppActivity() {
         binding.profileGroup.isVisible = isAvc
     }
 
+    // The HDR section is always shown once the source is known: an HDR source offers a two-way
+    // HDR/SDR choice (HDR by default) plus the source HDR parameters, while an SDR source only
+    // shows a note. Keeping HDR needs a 10-bit capable codec, which AVC is not.
+    private fun updateHdrState() {
+        val loaded = sourceVideoInfo != null
+        val isHdr = sourceIsHdr
+        binding.hdrTitle.isVisible = loaded
+        binding.hdrGroup.isVisible = loaded && isHdr
+        binding.hdrInfoText.isVisible = loaded
+        if (isHdr) {
+            binding.hdrKeep.isEnabled = !binding.videoCodecAvc.isChecked
+            if (binding.videoCodecAvc.isChecked && binding.hdrKeep.isChecked) {
+                binding.hdrSdr.isChecked = true
+            }
+            binding.hdrInfoText.text = getString(
+                R.string.video_transcode_hdr_info, outputColorInfoString()
+            )
+        } else {
+            binding.hdrInfoText.setText(R.string.video_transcode_hdr_sdr_source)
+        }
+    }
+
+    // Describes the OUTPUT color/HDR format implied by the current codec and HDR choice, so the
+    // user sees what will be written rather than the source parameters. A Dolby Vision source kept
+    // as HDR is written as standard HDR10/HLG (HEVC Main10), never as Dolby Vision.
+    private fun outputColorInfoString(): String {
+        val keepingHdr =
+            sourceIsHdr && binding.hdrKeep.isChecked && !binding.videoCodecAvc.isChecked
+        return if (keepingHdr) {
+            val transfer = if (sourceIsHlg) "HLG" else "HDR10"
+            "$transfer \u00b7 BT.2020 \u00b7 HEVC Main10"
+        } else {
+            val codec = if (binding.videoCodecAvc.isChecked) "H.264" else "HEVC"
+            "SDR \u00b7 BT.709 \u00b7 $codec"
+        }
+    }
+
+    private fun updateEncoderSubtitle() {
+        val mime = selectedVideoMime()
+        val hardware = MediaCodecUtils.hasHardwareEncoder(mime)
+        supportActionBar?.subtitle = getString(
+            if (hardware) {
+                R.string.video_transcode_encoder_hw
+            } else {
+                R.string.video_transcode_encoder_sw
+            }
+        )
+        binding.toolbar.setSubtitleTextColor(
+            if (hardware) {
+                getColorByAttr(android.R.attr.textColorSecondary)
+            } else {
+                getColor(R.color.encoder_software_warning)
+            }
+        )
+    }
+
+    private fun namingMode(): OutputNamingMode = when {
+        binding.nameSuffix.isChecked -> OutputNamingMode.SUFFIX
+        binding.nameCustom.isChecked -> OutputNamingMode.CUSTOM
+        else -> OutputNamingMode.KEEP
+    }
+
+    // The transformer always writes an MP4 container, so the output extension is fixed to .mp4
+    // regardless of the source container.
+    private fun outputExtension(): String = ".mp4"
+
+    private fun updateNameUi() {
+        val mode = namingMode()
+        binding.suffixLayout.isVisible = mode == OutputNamingMode.SUFFIX
+        binding.outputNameLayout.isVisible = mode == OutputNamingMode.CUSTOM
+        binding.resolvedNameText.isVisible = mode != OutputNamingMode.CUSTOM
+        if (mode != OutputNamingMode.CUSTOM) {
+            binding.resolvedNameText.text = getString(
+                R.string.video_transcode_resolved_name, resolvedOutputName()
+            )
+        }
+        val conflictsWithSource = resolvedOutputName() == file?.name
+        binding.conflictHintText.isVisible = conflictsWithSource && binding.saveKeep.isChecked
+    }
+
+    private fun resolvedOutputName(): String {
+        val file = file ?: return ""
+        return OutputNames.resolvedName(
+            baseName = file.name.asFileName().baseName,
+            extension = outputExtension(),
+            mode = namingMode(),
+            suffix = binding.suffixEdit.text?.toString()?.trim().orEmpty(),
+            customName = binding.outputNameEdit.text?.toString()?.trim().orEmpty()
+        )
+    }
+
     private fun startTranscode() {
         val file = file ?: return
-        val outputName = binding.outputNameEdit.text?.toString()?.trim().orEmpty()
-        if (outputName.isEmpty()) {
+        val mode = namingMode()
+        val suffix = binding.suffixEdit.text?.toString()?.trim().orEmpty()
+        val customName = binding.outputNameEdit.text?.toString()?.trim().orEmpty()
+        if (mode == OutputNamingMode.SUFFIX && suffix.isEmpty()) {
+            showToast(R.string.video_transcode_suffix_empty)
+            return
+        }
+        if (mode == OutputNamingMode.CUSTOM && customName.isEmpty()) {
             showToast(R.string.video_transcode_output_name_empty)
             return
         }
-        val outputPath = file.path.parent.resolve(outputName)
-        if (outputPath.exists()) {
-            showToast(R.string.video_transcode_output_exists)
-            return
-        }
+        val deleteSource = binding.saveDelete.isChecked
+        val outputName = OutputNames.resolvedName(
+            file.name.asFileName().baseName, outputExtension(), mode, suffix, customName
+        )
+        // In delete-source mode an identical name means an in-place overwrite; otherwise avoid
+        // colliding with any existing file by appending _1, _2, ... as needed.
+        val outputPath = OutputNames.resolveUnique(
+            file.path.parent, outputName, if (deleteSource) file.path else null
+        )
+        val hdrKeep = sourceIsHdr && binding.hdrKeep.isChecked
         val params = VideoTranscodeParams(
             sourcePath = file.path,
             outputPath = outputPath,
-            videoMime = if (binding.videoCodecAvc.isChecked) {
-                MimeTypes.VIDEO_H264
-            } else {
-                MimeTypes.VIDEO_H265
-            },
+            videoMime = selectedVideoMime(),
             shortSide = selectedShortSide(),
             bitRate = selectedBitRate(),
             frameRate = selectedFrameRate(),
@@ -191,25 +409,35 @@ class VideoTranscodeActivity : AppActivity() {
             } else {
                 null
             },
-            avcProfile = if (binding.videoCodecAvc.isChecked) selectedAvcProfile() else null,
-            clips = clips,
+            profileLevel = selectedProfileLevel(hdrKeep),
+            sourceIsHdr = sourceIsHdr,
+            hdrKeep = hdrKeep,
+            deleteSource = deleteSource,
         )
         val jobId = Random().nextInt()
         transcodeJobId = jobId
+        // Clear any stale Finished/Failed state for this path BEFORE the collector subscribes below;
+        // otherwise the collector replays it on subscription and tears the transcoding UI back down,
+        // leaving only the progress bar (re-shown by the job's Running emissions) with no summary and
+        // the action stuck on "start" instead of "cancel".
+        VideoTranscodeRegistry.start(file.path)
+        // Show what is being written above the progress bar while the (locked) form is dimmed.
+        binding.transcodeSummaryText.text =
+            buildTranscodeSummary(outputPath.fileName.toString())
         setTranscodingUi(true)
         progressJob = lifecycleScope.launch {
             VideoTranscodeRegistry.progressFlow(file.path).collect { progress ->
                 when (progress) {
                     TranscodeProgress.NotStarted -> Unit
                     is TranscodeProgress.Running -> {
-                        binding.progressIndicator.isVisible = true
+                        binding.progressContainer.isVisible = true
                         binding.progressIndicator.setProgressCompat(progress.progress, true)
-                        binding.statusText.isVisible = true
-                        binding.statusText.text = getString(
+                        binding.progressPercentText.text = getString(
                             R.string.video_transcode_progress_format, progress.progress
                         )
                     }
                     TranscodeProgress.Finished -> onTranscodeFinished()
+                    is TranscodeProgress.Failed -> onTranscodeFailed(progress.message)
                 }
             }
         }
@@ -224,6 +452,44 @@ class VideoTranscodeActivity : AppActivity() {
         showToast(R.string.video_transcode_finished)
     }
 
+    // The export failed: reset the page (unlock the form, hide progress) and tell the user, so a
+    // failure no longer leaves the bar hanging at 0% with the options locked.
+    private fun onTranscodeFailed(message: String?) {
+        progressJob?.cancel()
+        progressJob = null
+        transcodeJobId = null
+        setTranscodingUi(false)
+        binding.progressIndicator.setProgressCompat(0, false)
+        binding.progressPercentText.text = null
+        if (message.isNullOrBlank()) {
+            showToast(R.string.video_transcode_failed)
+        } else {
+            showToast(getString(R.string.video_transcode_failed_with_reason, message))
+        }
+    }
+
+    // A short summary of the output file name and the main encoding parameters, shown above the
+    // progress bar while re-encoding (the form itself is locked and dimmed at that point).
+    private fun buildTranscodeSummary(outputName: String): String {
+        val parts = mutableListOf<String>()
+        parts += if (binding.videoCodecAvc.isChecked) "H.264" else "H.265"
+        val resolution = computeOutputResolution()
+        parts += resolution?.let { "${it.first}\u00d7${it.second}" }
+            ?: getString(R.string.video_transcode_original)
+        selectedBitRate()?.let {
+            parts += String.format(java.util.Locale.US, "%.1f Mbps", it / 1_000_000.0)
+        }
+        selectedFrameRate()?.let { parts += "$it fps" }
+        val keepingHdr =
+            sourceIsHdr && binding.hdrKeep.isChecked && !binding.videoCodecAvc.isChecked
+        parts += if (keepingHdr) {
+            if (sourceIsHlg) "HLG" else "HDR10"
+        } else {
+            "SDR"
+        }
+        return outputName + "\n" + parts.joinToString(" \u00b7 ")
+    }
+
     private fun cancelTranscode() {
         val jobId = transcodeJobId ?: return
         FileJobService.cancelJob(jobId)
@@ -232,44 +498,65 @@ class VideoTranscodeActivity : AppActivity() {
 
     private fun setTranscodingUi(transcoding: Boolean) {
         isTranscoding = transcoding
-        binding.outputNameLayout.isEnabled = !transcoding
-        binding.videoCodecGroup.isEnabled = !transcoding
-        binding.resolutionGroup.isEnabled = !transcoding
-        binding.bitRateGroup.isEnabled = !transcoding
-        binding.frameRateGroup.isEnabled = !transcoding
-        binding.bitrateModeGroup.isEnabled = !transcoding
-        binding.profileGroup.isEnabled = !transcoding
-        invalidateOptionsMenu()
-        if (!transcoding) {
-            binding.progressIndicator.isVisible = false
-            binding.statusText.isVisible = false
+        val enabled = !transcoding
+        // ChipGroup does not propagate setEnabled to its chips, so toggle the chips explicitly;
+        // TextInputLayout and Slider disable their own content. Only the toolbar (back / stop) and
+        // the progress row stay interactive while re-encoding.
+        binding.saveModeGroup.setEnabledWithChildren(enabled)
+        binding.fileNameGroup.setEnabledWithChildren(enabled)
+        binding.videoCodecGroup.setEnabledWithChildren(enabled)
+        binding.resolutionGroup.setEnabledWithChildren(enabled)
+        binding.bitRateGroup.setEnabledWithChildren(enabled)
+        binding.frameRateGroup.setEnabledWithChildren(enabled)
+        binding.hdrGroup.setEnabledWithChildren(enabled)
+        binding.bitrateModeGroup.setEnabledWithChildren(enabled)
+        binding.profileGroup.setEnabledWithChildren(enabled)
+        binding.suffixLayout.isEnabled = enabled
+        binding.outputNameLayout.isEnabled = enabled
+        binding.bitRateCustomLayout.isEnabled = enabled
+        binding.bitRateSlider.isEnabled = enabled
+        if (enabled) {
+            // The blanket re-enable also revived the conditionally disabled chips; restore them.
+            binding.videoCodecHevc.isEnabled = MediaCodecUtils.hasEncoder(MimeTypes.VIDEO_H265)
+            updateHdrState()
         }
+        binding.progressContainer.isVisible = transcoding
+        binding.transcodeSummaryText.isVisible = transcoding
+        invalidateOptionsMenu()
+    }
+
+    private fun selectedVideoMime(): String = if (binding.videoCodecAvc.isChecked) {
+        MimeTypes.VIDEO_H264
+    } else {
+        MimeTypes.VIDEO_H265
+    }
+
+    private fun selectedPresetShortSide(): Int? = when {
+        binding.resolution2160p.isChecked -> PRESET_2160P
+        binding.resolution1440p.isChecked -> PRESET_1440P
+        binding.resolution1080p.isChecked -> PRESET_1080P
+        binding.resolution720p.isChecked -> PRESET_720P
+        binding.resolution480p.isChecked -> PRESET_480P
+        else -> null
     }
 
     private fun selectedShortSide(): Int? {
-        val info = sourceVideoInfo ?: return null
-        val track = info.videoTracks.firstOrNull() ?: return null
-        val width = track.width ?: return null
-        val height = track.height ?: return null
-        if (width <= 0 || height <= 0) {
-            return null
-        }
-        val preset = when {
-            binding.resolution1080p.isChecked -> PRESET_1080P
-            binding.resolution720p.isChecked -> PRESET_720P
-            binding.resolution480p.isChecked -> PRESET_480P
-            else -> return null
-        }
+        val preset = selectedPresetShortSide() ?: return null
+        val shortSide = sourceShortSide ?: return null
         // Never upscale; keep the source resolution.
-        val shortSide = min(width, height)
         return if (shortSide > preset) preset else null
     }
 
     private fun selectedBitRate(): Int? = when {
-        binding.bitRate2m.isChecked -> 2_000_000
-        binding.bitRate4m.isChecked -> 4_000_000
-        binding.bitRate8m.isChecked -> 8_000_000
-        else -> null
+        binding.bitRateOriginal.isChecked -> {
+            val bitRate = sourceTrack?.bitRate ?: sourceVideoInfo?.overallBitRate ?: return null
+            if (bitRate > 0) bitRate.toInt() else null
+        }
+        binding.bitRatePreset.isChecked -> binding.bitRateSlider.value.roundToInt() * 1_000_000
+        else -> {
+            val kbps = binding.bitRateCustomEdit.text?.toString()?.trim()?.toIntOrNull()
+            if (kbps != null && kbps > 0) kbps * 1000 else null
+        }
     }
 
     private fun selectedFrameRate(): Int? = when {
@@ -280,13 +567,34 @@ class VideoTranscodeActivity : AppActivity() {
         else -> null
     }
 
-    private fun selectedAvcProfile(): Int? = when {
-        binding.profileHigh.isChecked -> MediaCodecInfo.CodecProfileLevel.AVCProfileHigh
-        binding.profileBaseline.isChecked -> MediaCodecInfo.CodecProfileLevel.AVCProfileBaseline
-        else -> MediaCodecInfo.CodecProfileLevel.AVCProfileMain
+    private fun selectedProfileLevel(hdrKeep: Boolean): Int? = when {
+        binding.videoCodecAvc.isChecked -> when {
+            binding.profileHigh.isChecked -> MediaCodecInfo.CodecProfileLevel.AVCProfileHigh
+            binding.profileBaseline.isChecked ->
+                MediaCodecInfo.CodecProfileLevel.AVCProfileBaseline
+            else -> MediaCodecInfo.CodecProfileLevel.AVCProfileMain
+        }
+        hdrKeep ->
+            if (sourceIsHlg) {
+                MediaCodecInfo.CodecProfileLevel.HEVCProfileMain10
+            } else {
+                MediaCodecInfo.CodecProfileLevel.HEVCProfileMain10HDR10
+            }
+        else -> null
+    }
+
+    private fun formatFrameRate(frameRate: Float): String =
+        String.format(java.util.Locale.US, "%.2f fps", frameRate)
+
+    private fun formatBitRate(bitRate: Long): String {
+        val mbps = bitRate / 1_000_000.0
+        return String.format(java.util.Locale.US, "%.2f Mbps", mbps)
     }
 
     companion object {
+        private const val DEFAULT_SUFFIX = "_reencoded"
+        private const val PRESET_2160P = 2160
+        private const val PRESET_1440P = 1440
         private const val PRESET_1080P = 1080
         private const val PRESET_720P = 720
         private const val PRESET_480P = 480
@@ -295,13 +603,8 @@ class VideoTranscodeActivity : AppActivity() {
 
 private const val EXTRA_FILE = "dev.vcgms.aapp.vaterialfiles.videoedit.extra.FILE"
 
-private const val EXTRA_CLIPS = "dev.vcgms.aapp.vaterialfiles.videoedit.extra.CLIPS"
-
-fun startVideoTranscodeActivity(context: Context, file: FileItem, clips: List<ClipEdit>?) {
+fun startVideoTranscodeActivity(context: Context, file: FileItem) {
     val intent = Intent(context, VideoTranscodeActivity::class.java)
     intent.putExtra(EXTRA_FILE, file)
-    if (!clips.isNullOrEmpty()) {
-        intent.putParcelableArrayListExtra(EXTRA_CLIPS, ArrayList(clips))
-    }
     context.startActivity(intent)
 }

@@ -15,25 +15,51 @@
         <androidx.appcompat.widget.Toolbar
             android:id="@+id/toolbar"
             android:layout_width="match_parent"
-            android:layout_height="@dimen/file_list_toolbar_height"
-            app:popupTheme="@style/ThemeOverlay.MaterialFiles.ActionBarPopup.BelowToolbar" />
+            android:layout_height="56dp"
+            app:popupTheme="@style/ThemeOverlay.MaterialFiles.ActionBarPopup.BelowToolbar"
+            app:subtitleTextAppearance="@style/TextAppearance.AppCompat.Widget.ActionBar.Subtitle.Small" />
 
-        <com.google.android.material.progressindicator.LinearProgressIndicator
-            android:id="@+id/progressIndicator"
+        <!-- Output file name + main encoding parameters, shown above the progress bar while
+             re-encoding (the form below is locked and dimmed at that point). -->
+        <TextView
+            android:id="@+id/transcodeSummaryText"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:indeterminate="false"
-            android:max="100"
-            android:visibility="gone" />
-
-        <TextView
-            android:id="@+id/statusText"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_gravity="center_horizontal"
-            android:paddingBottom="6dp"
+            android:paddingStart="@dimen/screen_edge_margin"
+            android:paddingEnd="@dimen/screen_edge_margin"
+            android:paddingTop="12dp"
+            android:paddingBottom="8dp"
             android:textAppearance="?textAppearanceListItemSecondary"
             android:visibility="gone" />
+
+        <LinearLayout
+            android:id="@+id/progressContainer"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingStart="@dimen/screen_edge_margin"
+            android:paddingEnd="@dimen/screen_edge_margin"
+            android:paddingBottom="12dp"
+            android:visibility="gone">
+
+            <com.google.android.material.progressindicator.LinearProgressIndicator
+                android:id="@+id/progressIndicator"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:indeterminate="false"
+                android:max="100" />
+
+            <TextView
+                android:id="@+id/progressPercentText"
+                android:layout_width="40dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="6dp"
+                android:gravity="center_vertical|end"
+                android:includeFontPadding="false"
+                android:textAppearance="?textAppearanceListItemSecondary" />
+        </LinearLayout>
     </dev.vcgms.aapp.vaterialfiles.ui.CoordinatorAppBarLayout>
 
     <dev.vcgms.aapp.vaterialfiles.ui.CoordinatorScrollingFrameLayout
@@ -52,14 +78,95 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:padding="@dimen/screen_edge_margin">
+                android:paddingStart="@dimen/screen_edge_margin"
+                android:paddingEnd="@dimen/screen_edge_margin"
+                android:paddingTop="4dp"
+                android:paddingBottom="@dimen/screen_edge_margin">
+
+                <TextView
+                    style="@style/VideoTranscodeSectionTitle"
+                    android:text="@string/video_transcode_save_mode" />
+
+                <com.google.android.material.chip.ChipGroup
+                    android:id="@+id/saveModeGroup"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    app:selectionRequired="true"
+                    app:singleSelection="true">
+
+                    <com.google.android.material.chip.Chip
+                        android:id="@+id/saveKeep"
+                        style="@style/Widget.Material3.Chip.Filter"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/video_transcode_save_keep" />
+
+                    <com.google.android.material.chip.Chip
+                        android:id="@+id/saveDelete"
+                        style="@style/Widget.Material3.Chip.Filter"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/video_transcode_save_delete" />
+                </com.google.android.material.chip.ChipGroup>
+
+                <TextView
+                    style="@style/VideoTranscodeSectionTitle"
+                    android:text="@string/video_transcode_file_name" />
+
+                <com.google.android.material.chip.ChipGroup
+                    android:id="@+id/fileNameGroup"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    app:selectionRequired="true"
+                    app:singleSelection="true">
+
+                    <com.google.android.material.chip.Chip
+                        android:id="@+id/nameKeep"
+                        style="@style/Widget.Material3.Chip.Filter"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/video_transcode_name_keep" />
+
+                    <com.google.android.material.chip.Chip
+                        android:id="@+id/nameSuffix"
+                        style="@style/Widget.Material3.Chip.Filter"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/video_transcode_name_suffix" />
+
+                    <com.google.android.material.chip.Chip
+                        android:id="@+id/nameCustom"
+                        style="@style/Widget.Material3.Chip.Filter"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/video_transcode_name_custom" />
+                </com.google.android.material.chip.ChipGroup>
+
+                <com.google.android.material.textfield.TextInputLayout
+                    android:id="@+id/suffixLayout"
+                    style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:hint="@string/video_transcode_suffix"
+                    android:visibility="gone">
+
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/suffixEdit"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:inputType="text"
+                        android:maxLines="1" />
+                </com.google.android.material.textfield.TextInputLayout>
 
                 <com.google.android.material.textfield.TextInputLayout
                     android:id="@+id/outputNameLayout"
                     style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:hint="@string/video_transcode_output_name">
+                    android:layout_marginTop="8dp"
+                    android:hint="@string/video_transcode_output_name"
+                    android:visibility="gone">
 
                     <com.google.android.material.textfield.TextInputEditText
                         android:id="@+id/outputNameEdit"
@@ -70,11 +177,15 @@
                 </com.google.android.material.textfield.TextInputLayout>
 
                 <TextView
-                    android:id="@+id/timelineSummaryText"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
-                    android:textAppearance="?textAppearanceListItemSecondary"
+                    android:id="@+id/resolvedNameText"
+                    style="@style/VideoTranscodeSubTitle"
+                    android:layout_marginTop="8dp" />
+
+                <TextView
+                    android:id="@+id/conflictHintText"
+                    style="@style/VideoTranscodeSubTitle"
+                    android:layout_marginTop="4dp"
+                    android:text="@string/video_transcode_name_conflict_hint"
                     android:visibility="gone" />
 
                 <TextView
@@ -111,6 +222,7 @@
                     android:id="@+id/resolutionGroup"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
+                    app:chipSpacingVertical="4dp"
                     app:selectionRequired="true"
                     app:singleSelection="true">
 
@@ -120,6 +232,20 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="@string/video_transcode_original" />
+
+                    <com.google.android.material.chip.Chip
+                        android:id="@+id/resolution2160p"
+                        style="@style/Widget.Material3.Chip.Filter"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="2160P" />
+
+                    <com.google.android.material.chip.Chip
+                        android:id="@+id/resolution1440p"
+                        style="@style/Widget.Material3.Chip.Filter"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="1440P" />
 
                     <com.google.android.material.chip.Chip
                         android:id="@+id/resolution1080p"
@@ -144,6 +270,10 @@
                 </com.google.android.material.chip.ChipGroup>
 
                 <TextView
+                    android:id="@+id/resolutionValueText"
+                    style="@style/VideoTranscodeSubTitle" />
+
+                <TextView
                     style="@style/VideoTranscodeSectionTitle"
                     android:text="@string/video_transcode_bit_rate" />
 
@@ -162,26 +292,69 @@
                         android:text="@string/video_transcode_original" />
 
                     <com.google.android.material.chip.Chip
-                        android:id="@+id/bitRate2m"
+                        android:id="@+id/bitRatePreset"
                         style="@style/Widget.Material3.Chip.Filter"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="2 Mbps" />
+                        android:text="@string/video_transcode_bitrate_preset" />
 
                     <com.google.android.material.chip.Chip
-                        android:id="@+id/bitRate4m"
+                        android:id="@+id/bitRateCustom"
                         style="@style/Widget.Material3.Chip.Filter"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="4 Mbps" />
-
-                    <com.google.android.material.chip.Chip
-                        android:id="@+id/bitRate8m"
-                        style="@style/Widget.Material3.Chip.Filter"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="8 Mbps" />
+                        android:text="@string/video_transcode_bitrate_custom" />
                 </com.google.android.material.chip.ChipGroup>
+
+                <TextView
+                    android:id="@+id/bitRateValueText"
+                    style="@style/VideoTranscodeSubTitle"
+                    android:visibility="gone" />
+
+                <LinearLayout
+                    android:id="@+id/bitRateSliderContainer"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:visibility="gone">
+
+                    <com.google.android.material.slider.Slider
+                        android:id="@+id/bitRateSlider"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:value="6.0"
+                        android:valueFrom="1.0"
+                        android:valueTo="24.0"
+                        android:stepSize="1.0" />
+
+                    <TextView
+                        android:id="@+id/bitRateSliderText"
+                        android:layout_width="64dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="8dp"
+                        android:gravity="end"
+                        android:textAppearance="?textAppearanceListItemSecondary" />
+                </LinearLayout>
+
+                <com.google.android.material.textfield.TextInputLayout
+                    android:id="@+id/bitRateCustomLayout"
+                    style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:hint="@string/video_transcode_bitrate_custom_hint"
+                    android:visibility="gone">
+
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/bitRateCustomEdit"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:inputType="number"
+                        android:maxLines="1"
+                        android:text="6000" />
+                </com.google.android.material.textfield.TextInputLayout>
 
                 <TextView
                     style="@style/VideoTranscodeSectionTitle"
@@ -229,6 +402,44 @@
                         android:layout_height="wrap_content"
                         android:text="24 fps" />
                 </com.google.android.material.chip.ChipGroup>
+
+                <TextView
+                    android:id="@+id/frameRateValueText"
+                    style="@style/VideoTranscodeSubTitle" />
+
+                <TextView
+                    android:id="@+id/hdrTitle"
+                    style="@style/VideoTranscodeSectionTitle"
+                    android:text="@string/video_transcode_hdr"
+                    android:visibility="gone" />
+
+                <com.google.android.material.chip.ChipGroup
+                    android:id="@+id/hdrGroup"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:visibility="gone"
+                    app:selectionRequired="true"
+                    app:singleSelection="true">
+
+                    <com.google.android.material.chip.Chip
+                        android:id="@+id/hdrKeep"
+                        style="@style/Widget.Material3.Chip.Filter"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/video_transcode_hdr_keep" />
+
+                    <com.google.android.material.chip.Chip
+                        android:id="@+id/hdrSdr"
+                        style="@style/Widget.Material3.Chip.Filter"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/video_transcode_hdr_sdr" />
+                </com.google.android.material.chip.ChipGroup>
+
+                <TextView
+                    android:id="@+id/hdrInfoText"
+                    style="@style/VideoTranscodeSubTitle"
+                    android:visibility="gone" />
 
                 <TextView
                     style="@style/VideoTranscodeSectionTitle"

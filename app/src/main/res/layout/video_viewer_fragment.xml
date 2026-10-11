@@ -11,7 +11,8 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent" />
 
-    <!-- Tap target for toggling the controls overlay. -->
+    <!-- Gesture surface over the video: tap toggles the controls, double tap pauses, vertical
+         drags adjust brightness (left) / volume (right) and horizontal drags scrub. -->
     <View
         android:id="@+id/tapTarget"
         android:layout_width="match_parent"
@@ -166,5 +167,46 @@
                 android:textColor="?android:attr/textColorPrimary"
                 android:textAppearance="?textAppearanceLabelLarge" />
         </LinearLayout>
+    </LinearLayout>
+
+    <!-- Centered gesture feedback overlay (brightness / volume / seek preview). -->
+    <LinearLayout
+        android:id="@+id/gestureHud"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:orientation="vertical"
+        android:gravity="center"
+        android:minWidth="132dp"
+        android:background="@drawable/video_gesture_hud_background"
+        android:paddingStart="20dp"
+        android:paddingEnd="20dp"
+        android:paddingTop="16dp"
+        android:paddingBottom="16dp"
+        android:visibility="gone">
+
+        <ImageView
+            android:id="@+id/gestureIcon"
+            android:layout_width="36dp"
+            android:layout_height="36dp"
+            android:importantForAccessibility="no"
+            app:tint="@android:color/white" />
+
+        <TextView
+            android:id="@+id/gestureText"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:textColor="@android:color/white"
+            android:textAppearance="?textAppearanceTitleMedium" />
+
+        <ProgressBar
+            android:id="@+id/gestureProgress"
+            style="?android:attr/progressBarStyleHorizontal"
+            android:layout_width="120dp"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:max="100"
+            android:progressTint="@android:color/white" />
     </LinearLayout>
 </FrameLayout>

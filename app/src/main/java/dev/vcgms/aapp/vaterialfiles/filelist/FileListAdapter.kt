@@ -48,6 +48,7 @@ import dev.vcgms.aapp.vaterialfiles.ui.AnimatedListAdapter
 import dev.vcgms.aapp.vaterialfiles.ui.CheckableForegroundLinearLayout
 import dev.vcgms.aapp.vaterialfiles.ui.CheckableItemBackground
 import dev.vcgms.aapp.vaterialfiles.ui.StorageAnalysisBar
+import dev.vcgms.aapp.vaterialfiles.util.applyDescriptionAsTooltip
 import dev.vcgms.aapp.vaterialfiles.util.asColor
 import dev.vcgms.aapp.vaterialfiles.util.getColorByAttr
 import dev.vcgms.aapp.vaterialfiles.util.isMaterial3Theme
@@ -342,6 +343,10 @@ class FileListAdapter(
         bindClick(binding.itemVideoInfo, R.id.action_video_info)
         bindClick(binding.itemMoveToOtherPane, R.id.action_move_to_other_pane)
         bindClick(binding.itemCopyToOtherPane, R.id.action_copy_to_other_pane)
+        // The icon-only buttons in the top two rows reveal their action on long press, matching
+        // the toolbar action buttons. Applied after the content descriptions are finalized (e.g.
+        // copy is relabeled to "extract" inside an archive).
+        binding.root.applyDescriptionAsTooltip()
         val popup = PopupWindow(
             binding.root,
             ViewGroup.LayoutParams.WRAP_CONTENT,

@@ -590,8 +590,10 @@ class FileListPaneFragment : Fragment(), FileListAdapter.Listener,
         val path = file.path
         val mimeType = file.mimeType
         // Open images in the built-in viewer explicitly; an implicit VIEW intent could be
-        // routed to the system gallery if it is the device default handler for image/*.
-        if (mimeType.isImage && !path.isArchivePath) {
+        // routed to the system gallery if it is the device default handler for image/*. The
+        // explicit "open with" action must still show the system chooser, so only the default
+        // open takes the internal viewer.
+        if (!withChooser && mimeType.isImage && !path.isArchivePath) {
             startImageViewer(
                 requireContext(), (0..<adapter.itemCount).map { adapter.getItem(it) }, path
             )

@@ -7,11 +7,4 @@
         android:icon="@drawable/refresh_icon_control_normal_24dp"
         android:title="@string/video_info_reencode"
         app:showAsAction="never" />
-
-    <item
-        android:id="@+id/action_timeline"
-        android:enabled="false"
-        android:icon="@drawable/timeline_edit_icon_control_normal_24dp"
-        android:title="@string/video_transcode_timeline"
-        app:showAsAction="never" />
 </menu>

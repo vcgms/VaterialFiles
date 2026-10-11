@@ -27,7 +27,6 @@ import dev.vcgms.aapp.vaterialfiles.filelist.name
 import dev.vcgms.aapp.vaterialfiles.util.getColorByAttr
 import dev.vcgms.aapp.vaterialfiles.util.layoutInflater
 import dev.vcgms.aapp.vaterialfiles.util.setForceShowIcons
-import dev.vcgms.aapp.vaterialfiles.videoedit.createVideoEditIntent
 import dev.vcgms.aapp.vaterialfiles.videoedit.startVideoTranscodeActivity
 
 // Shows container-level and per-track (video/audio stream) information of a video file, with a
@@ -70,11 +69,7 @@ class VideoInfoActivity : AppActivity() {
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean = when (item.itemId) {
         R.id.action_reencode -> {
-            file?.let { startVideoTranscodeActivity(this, it, null) }
-            true
-        }
-        R.id.action_timeline -> {
-            file?.let { startActivity(createVideoEditIntent(this, it, null)) }
+            file?.let { startVideoTranscodeActivity(this, it) }
             true
         }
         else -> super.onOptionsItemSelected(item)

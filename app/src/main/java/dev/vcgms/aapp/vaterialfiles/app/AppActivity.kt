@@ -1,7 +1,6 @@
 package dev.vcgms.aapp.vaterialfiles.app
 
 import android.content.Context
-import android.content.res.Configuration
 import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.app.AppCompatDelegate
@@ -32,14 +31,6 @@ abstract class AppActivity : AppCompatActivity() {
         DisplaySizeHelper.apply(this)
 
         super.onCreate(savedInstanceState)
-    }
-
-    override fun onConfigurationChanged(newConfig: Configuration) {
-        super.onConfigurationChanged(newConfig)
-        // The manifest declares configChanges="uiMode" so that a system dark/light mode change
-        // does not recreate every activity; AppCompat applies the new night mode itself, and we
-        // additionally notify the night mode listeners so custom UIs can refresh in place.
-        NightModeHelper.sync()
     }
 
     override fun onResume() {

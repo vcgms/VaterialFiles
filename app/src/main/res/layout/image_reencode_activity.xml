@@ -51,7 +51,10 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:padding="@dimen/screen_edge_margin">
+                android:paddingStart="@dimen/screen_edge_margin"
+                android:paddingEnd="@dimen/screen_edge_margin"
+                android:paddingTop="4dp"
+                android:paddingBottom="@dimen/screen_edge_margin">
 
                 <TextView
                     android:id="@+id/summaryText"
@@ -85,6 +88,13 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="@string/image_reencode_naming_suffix" />
+
+                    <com.google.android.material.chip.Chip
+                        android:id="@+id/namingCustom"
+                        style="@style/Widget.Material3.Chip.Filter"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/image_reencode_naming_custom" />
                 </com.google.android.material.chip.ChipGroup>
 
                 <com.google.android.material.textfield.TextInputLayout
@@ -102,6 +112,35 @@
                         android:inputType="text"
                         android:maxLines="1" />
                 </com.google.android.material.textfield.TextInputLayout>
+
+                <com.google.android.material.textfield.TextInputLayout
+                    android:id="@+id/customNameLayout"
+                    style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:hint="@string/image_reencode_output_name"
+                    android:visibility="gone">
+
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/customNameEdit"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:inputType="text"
+                        android:maxLines="1" />
+                </com.google.android.material.textfield.TextInputLayout>
+
+                <TextView
+                    android:id="@+id/resolvedNameText"
+                    style="@style/VideoTranscodeSubTitle"
+                    android:layout_marginTop="8dp" />
+
+                <TextView
+                    android:id="@+id/conflictHintText"
+                    style="@style/VideoTranscodeSubTitle"
+                    android:layout_marginTop="4dp"
+                    android:text="@string/image_reencode_name_conflict_hint"
+                    android:visibility="gone" />
 
                 <TextView
                     style="@style/VideoTranscodeSectionTitle"

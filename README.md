@@ -30,15 +30,11 @@ An open source Material Design file manager, for Android 13+.
 
 On top of all upstream features, this fork (based on [Material Files](https://github.com/zhanghai/MaterialFiles)) adds:
 
-- **Four view modes**: List / Dual panes / **Columns** / Grid. Columns is a Finder-style Miller columns navigation with cross-column drag & drop; dual panes offer move/copy to the other pane.
-- **Storage analysis (ncdu-style)**: Analyze the current directory in one tap — every item shows its recursive size and share of the parent, the item background fills as a bar visualizing the share, and the list re-sorts by real size once done; works in list, dual-pane and column views.
-- **Storage analysis state button**: A persistent state indicator at the start of the breadcrumb bar (turned off / not analyzed / analyzing / done, animated while analyzing). Tap to force-analyze the current directory or stop the analysis; long press turns the feature off; every action is acknowledged with a toast.
-- **Controllable analysis scope**: Limit analysis to subdirectories of user storage (on by default, keeps the whole user space from being scanned) and optionally allow analyzing remote directories (off by default).
-- **Popup menus**: The overflow, view/sort and selection menus are iconified popup windows for one-tap access.
-- **Redesigned settings**: Collapsible Material 3 categories (collapsed by default), including a dedicated "Storage analysis" category.
-- **Display long file name**: A new "multiple lines" mode shows the full file name with adaptive item height.
-- **User storage friendly**: The user storage root reads "User storage" in the toolbar title and breadcrumbs, other users read "User 999 storage".
-- **Polish**: Toolbar title, breadcrumbs and list titles align on one axis; iconified navigation button and storage analysis indicator; app name shown atop the navigation drawer; comfortable spacing between subtitle icons and counts.
+- **Material 3 & Material You**: Dynamic-color theming with a redesigned, collapsible Material 3 settings screen.
+- **Four view modes**: List, dual panes, Finder-style **Columns** (Miller columns with cross-column drag & drop) and Grid.
+- **Storage analysis (ncdu-style)**: One-tap recursive size analysis with per-item share bars and automatic re-sorting by real size, driven by a persistent state button in the breadcrumb bar with a configurable scope.
+- **Media tools**: Video and image **info** pages and **re-encoding** — video via Media3 (codec, resolution, bitrate, frame rate, HDR→SDR), image between PNG / JPEG / HEIC (quality, rotation, resizing, EXIF preserved) — plus an **mpv-based video player** with brightness / volume / seek / speed gestures and HDR playback.
+- **Iconified popup menus**: Overflow, view/sort and multi-selection menus as icon popup windows for one-tap access.
 
 ## License
 

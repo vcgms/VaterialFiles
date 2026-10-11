@@ -66,6 +66,10 @@
 
     <style name="Widget.MaterialFiles.Material3.Toolbar" parent="Widget.Material3.Toolbar">
         <item name="android:minHeight">@dimen/file_list_toolbar_height</item>
+        <!-- AppCompat defaults buttonGravity to top; when a toolbar is taller than its ~48dp
+             navigation/action buttons (e.g. the 56dp bottom bar) they hug the top while the title
+             is centered, so the icons no longer line up with the text. Center them explicitly. -->
+        <item name="buttonGravity">center_vertical</item>
         <item name="contentInsetStartWithNavigation">48dp</item>
         <item name="toolbarNavigationButtonStyle">@style/Widget.MaterialFiles.Material3.Toolbar.NavigationButton</item>
         <item name="titleTextAppearance">@style/TextAppearance.MaterialFiles.Material3.ToolbarTitle</item>

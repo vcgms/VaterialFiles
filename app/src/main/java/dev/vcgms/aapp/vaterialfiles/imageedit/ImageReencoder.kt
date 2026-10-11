@@ -13,6 +13,7 @@ import java8.nio.file.Path
 import kotlin.math.max
 import kotlin.math.roundToInt
 import dev.vcgms.aapp.vaterialfiles.provider.common.delete
+import dev.vcgms.aapp.vaterialfiles.provider.common.deleteIfExists
 import dev.vcgms.aapp.vaterialfiles.provider.common.exists
 import dev.vcgms.aapp.vaterialfiles.provider.common.getLastModifiedTime
 import dev.vcgms.aapp.vaterialfiles.provider.common.newInputStream
@@ -71,6 +72,7 @@ object ImageReencoder {
             rotated
         }
         val tempFile = File(context.cacheDir, "image_reencode_${System.nanoTime()}${extension(params.format)}")
+        var outputComplete = false
         try {
             if (Thread.interrupted()) {
                 throw InterruptedException()
@@ -105,6 +107,7 @@ object ImageReencoder {
                     input.copyTo(output)
                 }
             }
+            outputComplete = true
             if (params.preserveExif && sourceLastModifiedTime != null) {
                 try {
                     params.outputPath.setLastModifiedTime(sourceLastModifiedTime)
@@ -132,6 +135,12 @@ object ImageReencoder {
                 }
             }
             tempFile.delete()
+            // A failed or cancelled re-encode must not leave a half-written output file behind. The
+            // source is never deleted here: an in-place re-encode writes over it, so only clean up a
+            // separate output file.
+            if (!outputComplete && !inPlace) {
+                params.outputPath.deleteIfExists()
+            }
         }
     }
 

@@ -6,5 +6,5 @@
         android:id="@+id/action_start"
         android:icon="@drawable/play_arrow_icon_control_normal_24dp"
         android:title="@string/video_transcode_start"
-        app:showAsAction="never" />
+        app:showAsAction="always" />
 </menu>
