@@ -16,3 +16,6 @@
 
 # Generated icon artwork intermediate (regenerable via art/make_icon_png.py)
 /icon.png
+
+# Qoder IDE/tooling data
+/.qoder/

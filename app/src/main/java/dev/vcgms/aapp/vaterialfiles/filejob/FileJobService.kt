@@ -16,6 +16,8 @@ import dev.vcgms.aapp.vaterialfiles.util.removeFirst
 import java.util.concurrent.Executors
 import java.util.concurrent.Future
 import dev.vcgms.aapp.vaterialfiles.compat.removeFirstCompat
+import dev.vcgms.aapp.vaterialfiles.imageedit.ImageReencodeParams
+import dev.vcgms.aapp.vaterialfiles.videoedit.VideoTranscodeParams
 
 class FileJobService : Service() {
     private lateinit var wakeWifiLock: WakeWifiLock
@@ -179,6 +181,14 @@ class FileJobService : Service() {
             context: Context
         ) {
             startJob(SetFileSeLinuxContextJob(path, seLinuxContext, recursive), context)
+        }
+
+        fun transcode(params: VideoTranscodeParams, jobId: Int, context: Context) {
+            startJob(VideoTranscodeJob(jobId, params), context)
+        }
+
+        fun reencodeImage(params: ImageReencodeParams, jobId: Int, context: Context) {
+            startJob(ImageReencodeJob(jobId, params), context)
         }
 
         fun write(

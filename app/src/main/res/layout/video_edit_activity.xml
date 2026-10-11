@@ -1,0 +1,262 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.coordinatorlayout.widget.CoordinatorLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:fitsSystemWindows="true">
+
+    <dev.vcgms.aapp.vaterialfiles.ui.CoordinatorAppBarLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="?colorAppBarSurface"
+        android:theme="?actionBarTheme">
+
+        <androidx.appcompat.widget.Toolbar
+            android:id="@+id/toolbar"
+            android:layout_width="match_parent"
+            android:layout_height="@dimen/file_list_toolbar_height"
+            app:popupTheme="?actionBarPopupTheme" />
+    </dev.vcgms.aapp.vaterialfiles.ui.CoordinatorAppBarLayout>
+
+    <dev.vcgms.aapp.vaterialfiles.ui.CoordinatorScrollingFrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:orientation="vertical">
+
+            <!-- Preview: no built-in player controls; the centered button toggles playback. -->
+            <FrameLayout
+                android:id="@+id/previewContainer"
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="1"
+                android:background="@android:color/black">
+
+                <androidx.media3.ui.PlayerView
+                    android:id="@+id/playerView"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:layout_gravity="center" />
+
+                <!-- While paused, ExoPlayer does not render new frames through the video
+                     effects pipeline, so this overlay shows the current frame with the
+                     selected clip's adjustments applied as a static preview. -->
+                <ImageView
+                    android:id="@+id/previewOverlay"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:scaleType="fitCenter"
+                    android:visibility="gone" />
+
+                <ImageButton
+                    android:id="@+id/playPauseButton"
+                    android:layout_width="64dp"
+                    android:layout_height="64dp"
+                    android:layout_gravity="center"
+                    android:contentDescription="@string/video_edit_play_pause"
+                    android:src="@drawable/play_icon_white_24dp" />
+            </FrameLayout>
+
+            <!-- Bottom pages: trim (timeline) and adjust (parameters) are separate pages. -->
+            <FrameLayout
+                android:id="@+id/pagesContainer"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content">
+
+                <!-- Trim page: the playhead line is fixed at the center and the timeline
+                     scrolls under it; the scissors button splits the clip at the playhead. -->
+                <LinearLayout
+                    android:id="@+id/trimPage"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical">
+
+                    <FrameLayout
+                        android:id="@+id/timelineContainer"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content">
+
+                        <HorizontalScrollView
+                            android:id="@+id/timelineScroll"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:scrollbars="none">
+
+                            <dev.vcgms.aapp.vaterialfiles.videoedit.TimelineView
+                                android:id="@+id/timelineView"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content" />
+                        </HorizontalScrollView>
+
+                        <View
+                            android:id="@+id/playheadLine"
+                            android:layout_width="2dp"
+                            android:layout_height="match_parent"
+                            android:layout_gravity="center_horizontal"
+                            android:background="?colorPrimary" />
+                    </FrameLayout>
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:paddingHorizontal="@dimen/screen_edge_margin"
+                        android:paddingBottom="8dp">
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/splitButton"
+                            style="@style/Widget.Material3.Button.OutlinedButton"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="@string/video_edit_split"
+                            app:icon="@drawable/scissors_icon_control_normal_24dp" />
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/deleteClipButton"
+                            style="@style/Widget.Material3.Button.OutlinedButton"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="8dp"
+                            android:layout_weight="1"
+                            android:text="@string/video_timeline_delete_clip" />
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/addClipButton"
+                            style="@style/Widget.Material3.Button.OutlinedButton"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="8dp"
+                            android:layout_weight="1"
+                            android:text="@string/video_timeline_add_clip" />
+                    </LinearLayout>
+                </LinearLayout>
+
+                <!-- Adjust page: parameters of the selected clip. -->
+                <LinearLayout
+                    android:id="@+id/adjustPage"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:paddingHorizontal="@dimen/screen_edge_margin"
+                    android:paddingTop="4dp"
+                    android:paddingBottom="8dp"
+                    android:visibility="gone">
+
+                    <TextView
+                        android:id="@+id/selectClipHint"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_gravity="center_vertical"
+                        android:gravity="center"
+                        android:padding="24dp"
+                        android:text="@string/video_edit_select_clip_hint"
+                        android:textAppearance="?textAppearanceListItemSecondary"
+                        android:visibility="gone" />
+
+                    <LinearLayout
+                        android:id="@+id/adjustControls"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical">
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:gravity="center_vertical"
+                            android:orientation="horizontal">
+
+                            <TextView
+                                android:layout_width="72dp"
+                                android:layout_height="wrap_content"
+                                android:text="@string/video_timeline_brightness"
+                                android:textAppearance="?textAppearanceListItemSecondary" />
+
+                            <com.google.android.material.slider.Slider
+                                android:id="@+id/brightnessSlider"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:stepSize="0.05"
+                                android:valueFrom="-1"
+                                android:valueTo="1" />
+                        </LinearLayout>
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:gravity="center_vertical"
+                            android:orientation="horizontal">
+
+                            <TextView
+                                android:layout_width="72dp"
+                                android:layout_height="wrap_content"
+                                android:text="@string/video_timeline_contrast"
+                                android:textAppearance="?textAppearanceListItemSecondary" />
+
+                            <com.google.android.material.slider.Slider
+                                android:id="@+id/contrastSlider"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:stepSize="0.05"
+                                android:valueFrom="-1"
+                                android:valueTo="1" />
+                        </LinearLayout>
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:gravity="center_vertical"
+                            android:orientation="horizontal">
+
+                            <TextView
+                                android:layout_width="72dp"
+                                android:layout_height="wrap_content"
+                                android:text="@string/video_timeline_crop"
+                                android:textAppearance="?textAppearanceListItemSecondary" />
+
+                            <com.google.android.material.slider.Slider
+                                android:id="@+id/cropSlider"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:stepSize="0.01"
+                                android:valueFrom="0"
+                                android:valueTo="0.5" />
+                        </LinearLayout>
+                    </LinearLayout>
+                </LinearLayout>
+            </FrameLayout>
+
+            <!-- Bottom page tabs. -->
+            <com.google.android.material.chip.ChipGroup
+                android:id="@+id/pageTabs"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center_horizontal"
+                android:layout_marginBottom="8dp"
+                app:selectionRequired="true"
+                app:singleSelection="true">
+
+                <com.google.android.material.chip.Chip
+                    android:id="@+id/tabTrim"
+                    style="@style/Widget.Material3.Chip.Filter"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/video_edit_tab_trim" />
+
+                <com.google.android.material.chip.Chip
+                    android:id="@+id/tabAdjust"
+                    style="@style/Widget.Material3.Chip.Filter"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/video_edit_tab_adjust" />
+            </com.google.android.material.chip.ChipGroup>
+        </LinearLayout>
+    </dev.vcgms.aapp.vaterialfiles.ui.CoordinatorScrollingFrameLayout>
+</androidx.coordinatorlayout.widget.CoordinatorLayout>

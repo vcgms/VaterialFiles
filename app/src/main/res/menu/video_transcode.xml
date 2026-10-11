@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+
+    <item
+        android:id="@+id/action_start"
+        android:icon="@drawable/play_arrow_icon_control_normal_24dp"
+        android:title="@string/video_transcode_start"
+        app:showAsAction="never" />
+</menu>

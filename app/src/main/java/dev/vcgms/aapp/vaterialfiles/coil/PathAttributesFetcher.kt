@@ -5,15 +5,16 @@ import android.content.pm.ApplicationInfo
 import android.media.MediaMetadataRetriever
 import android.os.ParcelFileDescriptor
 import androidx.core.graphics.drawable.toDrawable
-import coil.ImageLoader
-import coil.decode.ImageSource
-import coil.fetch.DrawableResult
-import coil.fetch.FetchResult
-import coil.fetch.Fetcher
-import coil.fetch.SourceResult
-import coil.key.Keyer
-import coil.request.Options
-import coil.size.Dimension
+import coil3.ImageLoader
+import coil3.decode.ImageSource
+import coil3.asImage
+import coil3.fetch.FetchResult
+import coil3.fetch.Fetcher
+import coil3.fetch.SourceFetchResult
+import coil3.fetch.ImageFetchResult
+import coil3.key.Keyer
+import coil3.request.Options
+import coil3.size.Dimension
 import java8.nio.file.Path
 import java8.nio.file.attribute.BasicFileAttributes
 import dev.vcgms.aapp.vaterialfiles.R
@@ -50,7 +51,7 @@ import java.io.IOException
 import dev.vcgms.aapp.vaterialfiles.util.setDataSource as appSetDataSource
 
 class PathAttributesKeyer : Keyer<Pair<Path, BasicFileAttributes>> {
-    override fun key(data: Pair<Path, BasicFileAttributes>, options: Options): String {
+    override fun key(data: Pair<Path, BasicFileAttributes>, options: Options): String? {
         val (path, attributes) = data
         return "$path:${attributes.lastModifiedInstant.toEpochMilli()}"
     }
@@ -64,7 +65,7 @@ class PathAttributesFetcher(
     private val videoFrameFetcherFactory: VideoFrameFetcher.Factory<Path>,
     private val pdfPageFetcherFactory: PdfPageFetcher.Factory<Path>
 ) : Fetcher {
-    override suspend fun fetch(): FetchResult? {
+    override suspend fun fetch(): FetchResult {
         val (path, attributes) = data
         val (width, height) = options.size
         // @see android.provider.MediaStore.ThumbnailConstants.MINI_SIZE
@@ -85,8 +86,9 @@ class PathAttributesFetcher(
                     }
                 }
                 if (thumbnail != null) {
-                    return DrawableResult(
-                        thumbnail.toDrawable(options.context.resources), true, path.dataSource
+                    return ImageFetchResult(
+                        thumbnail.toDrawable(options.context.resources).asImage(),
+                        true, path.dataSource
                     )
                 }
             }
@@ -103,15 +105,16 @@ class PathAttributesFetcher(
         when {
             mimeType.isApk && path.isGetPackageArchiveInfoCompatible -> {
                 try {
-                    return appIconFetcherFactory.create(path, options, imageLoader).fetch()
+                    return appIconFetcherFactory.create(path, options, imageLoader)!!.fetch()
+                    ?: throw IllegalStateException("Cannot fetch app icon for $path")
                 } catch (e: Exception) {
                     e.printStackTrace()
                 }
             }
             mimeType.isImage || mimeType == MimeType.GENERIC -> {
                 val inputStream = path.newInputStream()
-                return SourceResult(
-                    ImageSource(inputStream.source().buffer(), options.context),
+                return SourceFetchResult(
+                    ImageSource(inputStream.source().buffer(), options.fileSystem),
                     if (mimeType != MimeType.GENERIC) mimeType.value else null, path.dataSource
                 )
             }
@@ -126,15 +129,16 @@ class PathAttributesFetcher(
                     null
                 }
                 if (embeddedPicture != null) {
-                    return SourceResult(
+                    return SourceFetchResult(
                         ImageSource(
-                            embeddedPicture.inputStream().source().buffer(), options.context
+                            embeddedPicture.inputStream().source().buffer(), options.fileSystem
                         ), null, path.dataSource
                     )
                 }
                 if (mimeType.isVideo) {
                     try {
-                        return videoFrameFetcherFactory.create(path, options, imageLoader).fetch()
+                        return videoFrameFetcherFactory.create(path, options, imageLoader)!!.fetch()
+                    ?: throw IllegalStateException("Cannot fetch video frame for $path")
                     } catch (e: Exception) {
                         e.printStackTrace()
                     }
@@ -142,13 +146,14 @@ class PathAttributesFetcher(
             }
             mimeType.isPdf && (path.isLinuxPath || path.isDocumentPath) -> {
                 try {
-                    return pdfPageFetcherFactory.create(path, options, imageLoader).fetch()
+                    return pdfPageFetcherFactory.create(path, options, imageLoader)!!.fetch()
+                    ?: throw IllegalStateException("Cannot fetch PDF page for $path")
                 } catch (e: Exception) {
                     e.printStackTrace()
                 }
             }
         }
-        return null
+        throw IllegalStateException("Cannot fetch $path")
     }
 
     class Factory(private val context: Context) : Fetcher.Factory<Pair<Path, BasicFileAttributes>> {

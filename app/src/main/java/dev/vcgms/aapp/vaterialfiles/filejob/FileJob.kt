@@ -6,7 +6,7 @@ import java.io.InterruptedIOException
 import java.util.Random
 
 abstract class FileJob {
-    val id = Random().nextInt()
+    open val id = Random().nextInt()
 
     internal lateinit var service: FileJobService
         private set

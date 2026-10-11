@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+
+    <item
+        android:id="@+id/action_reencode"
+        android:icon="@drawable/refresh_icon_control_normal_24dp"
+        android:title="@string/image_info_reencode"
+        app:showAsAction="never" />
+</menu>

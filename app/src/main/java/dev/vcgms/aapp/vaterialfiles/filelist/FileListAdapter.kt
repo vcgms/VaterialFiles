@@ -4,10 +4,12 @@ import android.os.Handler
 import android.os.Looper
 import android.content.Context
 import android.util.TypedValue
+import android.view.Gravity
 import android.view.Menu
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
+import android.widget.PopupWindow
 import android.widget.ImageButton
 import android.widget.ImageView
 import android.widget.LinearLayout
@@ -17,8 +19,8 @@ import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.RecyclerView
-import coil.dispose
-import coil.load
+import dev.vcgms.aapp.vaterialfiles.coil.dispose
+import dev.vcgms.aapp.vaterialfiles.coil.load
 import java8.nio.file.Path
 import kotlin.math.roundToInt
 import me.zhanghai.android.fastscroll.PopupTextProvider
@@ -28,12 +30,15 @@ import dev.vcgms.aapp.vaterialfiles.compat.foregroundCompat
 import dev.vcgms.aapp.vaterialfiles.compat.getDrawableCompat
 import dev.vcgms.aapp.vaterialfiles.databinding.FileItemGridBinding
 import dev.vcgms.aapp.vaterialfiles.databinding.FileItemListBinding
+import dev.vcgms.aapp.vaterialfiles.databinding.FileItemMenuBinding
 import dev.vcgms.aapp.vaterialfiles.file.FileItem
 import dev.vcgms.aapp.vaterialfiles.file.asFileSize
 import dev.vcgms.aapp.vaterialfiles.file.fileSize
 import dev.vcgms.aapp.vaterialfiles.file.formatShort
 import dev.vcgms.aapp.vaterialfiles.file.iconRes
 import dev.vcgms.aapp.vaterialfiles.file.isApk
+import dev.vcgms.aapp.vaterialfiles.file.isImage
+import dev.vcgms.aapp.vaterialfiles.file.isVideo
 import dev.vcgms.aapp.vaterialfiles.provider.archive.isArchivePath
 import dev.vcgms.aapp.vaterialfiles.provider.common.isEncrypted
 import dev.vcgms.aapp.vaterialfiles.provider.common.newDirectoryStream
@@ -61,9 +66,12 @@ class FileListAdapter(
     // The fragment hosting this adapter, used to show the item actions dialog.
     var hostFragment: Fragment? = null
 
-    // When set (single-pane list mode), a long press on an item is reported to this callback so
-    // that the fragment can start a drag instead of showing the item menu.
+    // When set (column view mode), a long press on an item is reported to this callback so that
+    // the pane can start a cross-column drag instead of showing the item menu.
     var itemDragListener: ((View, FileItem) -> Unit)? = null
+
+    // Whether a long press starts a drag (column view) rather than opening the item menu.
+    var longPressStartsDrag: Boolean = false
 
     // Whether the per-item three-dot menu button is shown; when hidden, a long press on the item
     // shows its menu in a centered dialog instead.
@@ -272,8 +280,78 @@ class FileListAdapter(
                         ).setIcon(copyToOtherPaneIconRes)
                     }
                 }
-            menuButton.setOnClickListener { popupMenu.show() }
         }
+    }
+
+    private var itemMenuPopup: PopupWindow? = null
+
+    // Shows the per-item actions in a custom popup, mirroring the top-right overflow menu style:
+    // the first two rows hold icon-only primary actions and the remaining entries keep their
+    // icon+text rows. Visibility is read from the item menu prepared during bind.
+    private fun showItemMenu(anchor: View, holder: ViewHolder, file: FileItem) {
+        itemMenuPopup?.dismiss()
+        val binding = FileItemMenuBinding.inflate(anchor.context.layoutInflater)
+        val menu = holder.popupMenu.menu
+        fun isVisible(itemId: Int) = menu.findItem(itemId)?.isVisible == true
+        binding.itemCopy.isVisible = isVisible(R.id.action_copy)
+        binding.itemCut.isVisible = isVisible(R.id.action_cut)
+        binding.itemDelete.isVisible = isVisible(R.id.action_delete)
+        binding.itemRename.isVisible = isVisible(R.id.action_rename)
+        binding.itemOpenWith.isVisible = isVisible(R.id.action_open_with)
+        binding.itemArchive.isVisible = isVisible(R.id.action_archive)
+        binding.itemShare.isVisible = isVisible(R.id.action_share)
+        binding.itemProperties.isVisible = isVisible(R.id.action_properties)
+        binding.itemExtract.isVisible = isVisible(R.id.action_extract)
+        binding.itemCopyPath.isVisible = isVisible(R.id.action_copy_path)
+        binding.itemAddBookmark.isVisible = isVisible(R.id.action_add_bookmark)
+        binding.itemCreateShortcut.isVisible = isVisible(R.id.action_create_shortcut)
+        binding.itemImageInfo.isVisible = isVisible(R.id.action_image_info)
+        binding.itemVideoInfo.isVisible = isVisible(R.id.action_video_info)
+        // Inside an archive the copy action is presented as "extract".
+        menu.findItem(R.id.action_copy)?.title?.let { binding.itemCopy.contentDescription = it }
+        if (file.path.isArchivePath) {
+            binding.itemCopy.setImageResource(R.drawable.extract_icon_control_normal_24dp)
+        }
+        if (moveToOtherPaneListener != null) {
+            binding.itemMoveToOtherPane.isVisible = isVisible(R.id.action_move_to_other_pane)
+            binding.itemMoveToOtherPaneIcon.setImageResource(moveToOtherPaneIconRes)
+            binding.itemMoveToOtherPaneText.text = moveToOtherPaneTitle
+            binding.itemCopyToOtherPane.isVisible = isVisible(R.id.action_copy_to_other_pane)
+            binding.itemCopyToOtherPaneIcon.setImageResource(copyToOtherPaneIconRes)
+            binding.itemCopyToOtherPaneText.text = copyToOtherPaneTitle
+        }
+        fun bindClick(view: View, itemId: Int) {
+            view.setOnClickListener {
+                itemMenuPopup?.dismiss()
+                performMenuAction(file, itemId)
+            }
+        }
+        bindClick(binding.itemCopy, R.id.action_copy)
+        bindClick(binding.itemCut, R.id.action_cut)
+        bindClick(binding.itemDelete, R.id.action_delete)
+        bindClick(binding.itemRename, R.id.action_rename)
+        bindClick(binding.itemOpenWith, R.id.action_open_with)
+        bindClick(binding.itemArchive, R.id.action_archive)
+        bindClick(binding.itemShare, R.id.action_share)
+        bindClick(binding.itemProperties, R.id.action_properties)
+        bindClick(binding.itemExtract, R.id.action_extract)
+        bindClick(binding.itemCopyPath, R.id.action_copy_path)
+        bindClick(binding.itemAddBookmark, R.id.action_add_bookmark)
+        bindClick(binding.itemCreateShortcut, R.id.action_create_shortcut)
+        bindClick(binding.itemImageInfo, R.id.action_image_info)
+        bindClick(binding.itemVideoInfo, R.id.action_video_info)
+        bindClick(binding.itemMoveToOtherPane, R.id.action_move_to_other_pane)
+        bindClick(binding.itemCopyToOtherPane, R.id.action_copy_to_other_pane)
+        val popup = PopupWindow(
+            binding.root,
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+            true
+        )
+        popup.elevation = anchor.resources.displayMetrics.density * 8
+        popup.isOutsideTouchable = true
+        itemMenuPopup = popup
+        popup.showAsDropDown(anchor, 0, 0, Gravity.END)
     }
 
     private fun applyDenseStyle(holder: ViewHolder, viewType: FileViewType) {
@@ -508,6 +586,9 @@ class FileListAdapter(
             menu.findItem(R.id.action_move_to_other_pane).isVisible = !hasPickOptions && !isReadOnly
             menu.findItem(R.id.action_copy_to_other_pane).isVisible = !hasPickOptions
         }
+        // The three-dot button shows the custom popup; the binding is refreshed on every bind so
+        // that it always captures the current file.
+        holder.menuButton.setOnClickListener { showItemMenu(it, holder, file) }
         val checked = file in selectedFiles
         holder.itemLayout.isChecked = checked
         holder.nameText.apply {
@@ -545,10 +626,17 @@ class FileListAdapter(
             }
             setOnLongClickListener {
                 val dragListener = itemDragListener
-                if (dragListener != null && viewType == FileViewType.LIST && pickOptions == null) {
+                if (longPressStartsDrag && dragListener != null && viewType == FileViewType.LIST
+                    && pickOptions == null
+                ) {
+                    // Column view: long press drags the item so it can be dropped onto another
+                    // column's directory.
                     dragListener(this, file)
                 } else if (viewType == FileViewType.GRID || !isMenuButtonVisible) {
                     showItemActionsDialog(file, menu)
+                } else if (pickOptions == null) {
+                    // Single-column list: long press opens the same menu as the three-dot button.
+                    showItemMenu(holder.menuButton, holder, file)
                 } else if (selectedFiles.isEmpty()) {
                     selectFile(file)
                 } else {
@@ -584,10 +672,10 @@ class FileListAdapter(
             isVisible = shouldLoadThumbnail
             if (shouldLoadThumbnail) {
                 load(path to attributes) {
-                    listener { _, _ ->
+                    listener(onSuccess = { _, _ ->
                         val iconImage = holder.thumbnailIconImage ?: holder.iconImage
                         iconImage.isVisible = false
-                    }
+                    })
                 }
             }
         }
@@ -636,6 +724,8 @@ class FileListAdapter(
         menu.findItem(R.id.action_extract).isVisible = file.isArchiveFile
         menu.findItem(R.id.action_archive).isVisible = !isArchivePath
         menu.findItem(R.id.action_add_bookmark).isVisible = isDirectory
+        menu.findItem(R.id.action_video_info).isVisible = file.mimeType.isVideo
+        menu.findItem(R.id.action_image_info).isVisible = file.mimeType.isImage
         holder.popupMenu.setOnMenuItemClickListener { performMenuAction(file, it.itemId) }
     }
 
@@ -693,6 +783,14 @@ class FileListAdapter(
             }
             R.id.action_properties -> {
                 listener.showPropertiesDialog(file)
+                true
+            }
+            R.id.action_video_info -> {
+                listener.showVideoInfo(file)
+                true
+            }
+            R.id.action_image_info -> {
+                listener.showImageInfo(file)
                 true
             }
             R.id.action_move_to_other_pane -> {
@@ -866,6 +964,8 @@ class FileListAdapter(
         R.id.action_add_bookmark -> R.string.file_item_action_add_bookmark
         R.id.action_create_shortcut -> R.string.file_item_action_create_shortcut
         R.id.action_properties -> R.string.file_item_action_properties
+        R.id.action_video_info -> R.string.file_item_action_video_info
+        R.id.action_image_info -> R.string.file_item_action_image_info
         else -> 0
     }
 
@@ -882,6 +982,8 @@ class FileListAdapter(
         R.id.action_add_bookmark -> R.drawable.bookmark_add_icon_control_normal_24dp
         R.id.action_create_shortcut -> R.drawable.shortcut_icon_control_normal_24dp
         R.id.action_properties -> R.drawable.information_icon_control_normal_24dp
+        R.id.action_video_info -> R.drawable.video_info_icon_control_normal_24dp
+        R.id.action_image_info -> R.drawable.image_info_icon_control_normal_24dp
         R.id.action_move_to_other_pane -> moveToOtherPaneIconRes
         R.id.action_copy_to_other_pane -> copyToOtherPaneIconRes
         else -> 0
@@ -999,5 +1101,7 @@ class FileListAdapter(
         fun addBookmark(file: FileItem)
         fun createShortcut(file: FileItem)
         fun showPropertiesDialog(file: FileItem)
+        fun showVideoInfo(file: FileItem)
+        fun showImageInfo(file: FileItem)
     }
 }

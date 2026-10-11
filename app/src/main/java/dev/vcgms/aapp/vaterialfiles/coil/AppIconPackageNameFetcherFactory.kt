@@ -2,8 +2,8 @@ package dev.vcgms.aapp.vaterialfiles.coil
 
 import android.content.Context
 import android.content.pm.ApplicationInfo
-import coil.key.Keyer
-import coil.request.Options
+import coil3.key.Keyer
+import coil3.request.Options
 import dev.vcgms.aapp.vaterialfiles.R
 import dev.vcgms.aapp.vaterialfiles.compat.PackageManagerCompat
 import dev.vcgms.aapp.vaterialfiles.util.getDimensionPixelSize
@@ -12,7 +12,7 @@ import java.io.Closeable
 data class AppIconPackageName(val packageName: String)
 
 class AppIconPackageNameKeyer : Keyer<AppIconPackageName> {
-    override fun key(data: AppIconPackageName, options: Options): String = data.packageName
+    override fun key(data: AppIconPackageName, options: Options): String? = data.packageName
 }
 
 class AppIconPackageNameFetcherFactory(

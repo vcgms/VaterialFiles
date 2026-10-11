@@ -101,6 +101,12 @@
             android:title="@string/settings_bookmark_directories_title"
             android:summary="@string/settings_bookmark_directories_summary_empty"
             android:widgetLayout="@layout/preference_widget_chevron" />
+
+        <SwitchPreferenceCompat
+            android:key="@string/pref_key_file_list_restore_last_directory"
+            android:title="@string/settings_restore_last_directory_title"
+            android:summary="@string/settings_restore_last_directory_summary"
+            android:defaultValue="@bool/pref_default_value_file_list_restore_last_directory" />
     </dev.vcgms.aapp.vaterialfiles.settings.CollapsiblePreferenceCategory>
 
     <dev.vcgms.aapp.vaterialfiles.settings.CollapsiblePreferenceCategory

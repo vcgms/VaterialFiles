@@ -1,0 +1,315 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:background="?attr/popupMenuBackground"
+    android:paddingTop="8dp"
+    android:paddingBottom="8dp">
+
+    <!-- Row 1: copy / cut / delete / rename, icon only. -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:paddingStart="4dp"
+        android:paddingEnd="4dp"
+        android:layout_marginBottom="4dp">
+
+        <ImageButton
+            android:id="@+id/item_copy"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:background="?selectableItemBackgroundBorderless"
+            android:contentDescription="@string/copy"
+            android:src="@drawable/copy_icon_control_normal_24dp" />
+
+        <ImageButton
+            android:id="@+id/item_cut"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:background="?selectableItemBackgroundBorderless"
+            android:contentDescription="@string/cut"
+            android:src="@drawable/cut_icon_control_normal_24dp" />
+
+        <ImageButton
+            android:id="@+id/item_delete"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:background="?selectableItemBackgroundBorderless"
+            android:contentDescription="@string/delete"
+            android:src="@drawable/delete_icon_control_normal_24dp" />
+
+        <ImageButton
+            android:id="@+id/item_rename"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:background="?selectableItemBackgroundBorderless"
+            android:contentDescription="@string/rename"
+            android:src="@drawable/edit_icon_control_normal_24dp" />
+    </LinearLayout>
+
+    <!-- Row 2: open with / archive / share / properties, icon only. -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:paddingStart="4dp"
+        android:paddingEnd="4dp"
+        android:layout_marginBottom="4dp">
+
+        <ImageButton
+            android:id="@+id/item_open_with"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:background="?selectableItemBackgroundBorderless"
+            android:contentDescription="@string/file_item_action_open_with"
+            android:src="@drawable/open_with_icon_control_normal_24dp" />
+
+        <ImageButton
+            android:id="@+id/item_archive"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:background="?selectableItemBackgroundBorderless"
+            android:contentDescription="@string/file_item_action_archive"
+            android:src="@drawable/archive_icon_control_normal_24dp" />
+
+        <ImageButton
+            android:id="@+id/item_share"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:background="?selectableItemBackgroundBorderless"
+            android:contentDescription="@string/share"
+            android:src="@drawable/share_icon_control_normal_24dp" />
+
+        <ImageButton
+            android:id="@+id/item_properties"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:background="?selectableItemBackgroundBorderless"
+            android:contentDescription="@string/file_item_action_properties"
+            android:src="@drawable/information_icon_control_normal_24dp" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/item_extract"
+        android:layout_width="match_parent"
+        android:layout_height="40dp"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:background="?selectableItemBackground"
+        android:clickable="true"
+        android:focusable="true"
+        android:paddingStart="12dp"
+        android:paddingEnd="12dp">
+
+        <ImageView
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:src="@drawable/extract_icon_control_normal_24dp" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="12dp"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:text="@string/file_item_action_extract"
+            android:textAppearance="?textAppearanceBody2" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/item_copy_path"
+        android:layout_width="match_parent"
+        android:layout_height="40dp"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:background="?selectableItemBackground"
+        android:clickable="true"
+        android:focusable="true"
+        android:paddingStart="12dp"
+        android:paddingEnd="12dp">
+
+        <ImageView
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:src="@drawable/link_icon_control_normal_24dp" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="12dp"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:text="@string/file_item_action_copy_path"
+            android:textAppearance="?textAppearanceBody2" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/item_add_bookmark"
+        android:layout_width="match_parent"
+        android:layout_height="40dp"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:background="?selectableItemBackground"
+        android:clickable="true"
+        android:focusable="true"
+        android:paddingStart="12dp"
+        android:paddingEnd="12dp">
+
+        <ImageView
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:src="@drawable/bookmark_add_icon_control_normal_24dp" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="12dp"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:text="@string/file_item_action_add_bookmark"
+            android:textAppearance="?textAppearanceBody2" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/item_create_shortcut"
+        android:layout_width="match_parent"
+        android:layout_height="40dp"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:background="?selectableItemBackground"
+        android:clickable="true"
+        android:focusable="true"
+        android:paddingStart="12dp"
+        android:paddingEnd="12dp">
+
+        <ImageView
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:src="@drawable/shortcut_icon_control_normal_24dp" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="12dp"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:text="@string/file_item_action_create_shortcut"
+            android:textAppearance="?textAppearanceBody2" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/item_image_info"
+        android:layout_width="match_parent"
+        android:layout_height="40dp"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:background="?selectableItemBackground"
+        android:clickable="true"
+        android:focusable="true"
+        android:paddingStart="12dp"
+        android:paddingEnd="12dp">
+
+        <ImageView
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:src="@drawable/image_info_icon_control_normal_24dp" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="12dp"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:text="@string/file_item_action_image_info"
+            android:textAppearance="?textAppearanceBody2" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/item_video_info"
+        android:layout_width="match_parent"
+        android:layout_height="40dp"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:background="?selectableItemBackground"
+        android:clickable="true"
+        android:focusable="true"
+        android:paddingStart="12dp"
+        android:paddingEnd="12dp">
+
+        <ImageView
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:src="@drawable/video_info_icon_control_normal_24dp" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="12dp"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:text="@string/file_item_action_video_info"
+            android:textAppearance="?textAppearanceBody2" />
+    </LinearLayout>
+
+    <!-- Dual-pane only; title and icon are supplied by the host at show time. -->
+    <LinearLayout
+        android:id="@+id/item_move_to_other_pane"
+        android:layout_width="match_parent"
+        android:layout_height="40dp"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:background="?selectableItemBackground"
+        android:clickable="true"
+        android:focusable="true"
+        android:paddingStart="12dp"
+        android:paddingEnd="12dp"
+        android:visibility="gone">
+
+        <ImageView
+            android:id="@+id/item_move_to_other_pane_icon"
+            android:layout_width="24dp"
+            android:layout_height="24dp" />
+
+        <TextView
+            android:id="@+id/item_move_to_other_pane_text"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="12dp"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:textAppearance="?textAppearanceBody2" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/item_copy_to_other_pane"
+        android:layout_width="match_parent"
+        android:layout_height="40dp"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:background="?selectableItemBackground"
+        android:clickable="true"
+        android:focusable="true"
+        android:paddingStart="12dp"
+        android:paddingEnd="12dp"
+        android:visibility="gone">
+
+        <ImageView
+            android:id="@+id/item_copy_to_other_pane_icon"
+            android:layout_width="24dp"
+            android:layout_height="24dp" />
+
+        <TextView
+            android:id="@+id/item_copy_to_other_pane_text"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="12dp"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:textAppearance="?textAppearanceBody2" />
+    </LinearLayout>
+</LinearLayout>

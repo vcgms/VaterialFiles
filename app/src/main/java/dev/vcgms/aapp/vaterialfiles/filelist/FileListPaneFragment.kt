@@ -27,10 +27,13 @@ import dev.vcgms.aapp.vaterialfiles.file.MimeType
 import dev.vcgms.aapp.vaterialfiles.file.fileProviderUri
 import dev.vcgms.aapp.vaterialfiles.file.isApk
 import dev.vcgms.aapp.vaterialfiles.file.isImage
+import dev.vcgms.aapp.vaterialfiles.file.isVideo
 import dev.vcgms.aapp.vaterialfiles.filejob.FileJobService
 import dev.vcgms.aapp.vaterialfiles.filelist.FileSortOptions.By
 import dev.vcgms.aapp.vaterialfiles.filelist.FileSortOptions.Order
 import dev.vcgms.aapp.vaterialfiles.fileproperties.FilePropertiesDialogFragment
+import dev.vcgms.aapp.vaterialfiles.imageinfo.startImageInfoActivity
+import dev.vcgms.aapp.vaterialfiles.videoinfo.startVideoInfoActivity
 import dev.vcgms.aapp.vaterialfiles.navigation.BookmarkDirectories
 import dev.vcgms.aapp.vaterialfiles.navigation.BookmarkDirectory
 import dev.vcgms.aapp.vaterialfiles.provider.archive.isArchivePath
@@ -56,7 +59,8 @@ import dev.vcgms.aapp.vaterialfiles.util.startActivitySafe
 import dev.vcgms.aapp.vaterialfiles.util.valueCompat
 import dev.vcgms.aapp.vaterialfiles.util.viewModels
 import dev.vcgms.aapp.vaterialfiles.util.withChooser
-import dev.vcgms.aapp.vaterialfiles.viewer.image.ImageViewerActivity
+import dev.vcgms.aapp.vaterialfiles.viewer.image.startImageViewer
+import dev.vcgms.aapp.vaterialfiles.viewer.video.startVideoViewer
 
 // A self-contained file list pane used in dual-pane mode: list content only, with its own
 // FileListViewModel. Interactions (open, long-press action menu, etc.) mirror FileListFragment,
@@ -91,6 +95,10 @@ class FileListPaneFragment : Fragment(), FileListAdapter.Listener,
 
     // Called when this pane's selection changes so the host can sync the overlay action bar.
     var selectionListener: ((FileItemSet) -> Unit)? = null
+
+    // Called when this pane's current path changes so the host can remember it as the last
+    // browsed directory of this column.
+    var currentPathListener: ((Path) -> Unit)? = null
 
     // Column view mode: tapping a directory reports it to the host (which appends a new column)
     // instead of navigating this pane in place, and long press starts a cross-column drag
@@ -301,6 +309,7 @@ class FileListPaneFragment : Fragment(), FileListAdapter.Listener,
             isDenseStyle = true
             if (columnMode) {
                 // Column view: long press starts a cross-column drag handled by the host.
+                longPressStartsDrag = true
                 itemDragListener = { itemView, file ->
                     ColumnController.draggingFile = file
                     ColumnController.draggingColumnIndex = paneId
@@ -364,7 +373,7 @@ class FileListPaneFragment : Fragment(), FileListAdapter.Listener,
         viewModel.breadcrumbLiveData.observe(viewLifecycleOwner) { breadcrumbListener?.invoke(it) }
         // These observers exist only to activate the lazy mapped live data; otherwise reading
         // currentPath / isViewSortPathSpecific (through valueCompat) would fail with a null value.
-        viewModel.currentPathLiveData.observe(viewLifecycleOwner) {}
+        viewModel.currentPathLiveData.observe(viewLifecycleOwner) { currentPathListener?.invoke(it) }
         viewModel.viewSortPathSpecificLiveData.observe(viewLifecycleOwner) {}
         viewModel.viewTypeLiveData.observe(viewLifecycleOwner) { onViewTypeChanged(it) }
         Settings.FILE_LIST_DUAL_PANE.observe(viewLifecycleOwner) { onDualPaneChanged(it) }
@@ -525,6 +534,12 @@ class FileListPaneFragment : Fragment(), FileListAdapter.Listener,
             openApk(file)
             return
         }
+        if (file.mimeType.isVideo) {
+            startVideoViewer(
+                requireContext(), (0..<adapter.itemCount).map { adapter.getItem(it) }, file.path
+            )
+            return
+        }
         if (file.isListable) {
             if (columnMode) {
                 columnExpandListener?.invoke(file.listablePath)
@@ -574,6 +589,14 @@ class FileListPaneFragment : Fragment(), FileListAdapter.Listener,
     private fun openFileWithIntent(file: FileItem, withChooser: Boolean) {
         val path = file.path
         val mimeType = file.mimeType
+        // Open images in the built-in viewer explicitly; an implicit VIEW intent could be
+        // routed to the system gallery if it is the device default handler for image/*.
+        if (mimeType.isImage && !path.isArchivePath) {
+            startImageViewer(
+                requireContext(), (0..<adapter.itemCount).map { adapter.getItem(it) }, path
+            )
+            return
+        }
         if (path.isArchivePath) {
             FileJobService.open(path, mimeType, withChooser, requireContext())
         } else {
@@ -581,7 +604,6 @@ class FileListPaneFragment : Fragment(), FileListAdapter.Listener,
                 .addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
                 .apply {
                     extraPath = path
-                    maybeAddImageViewerActivityExtras(this, path, mimeType)
                 }
                 .let {
                     if (withChooser) {
@@ -597,31 +619,6 @@ class FileListPaneFragment : Fragment(), FileListAdapter.Listener,
                 }
             startActivitySafe(intent)
         }
-    }
-
-    private fun maybeAddImageViewerActivityExtras(intent: Intent, path: Path, mimeType: MimeType) {
-        if (!mimeType.isImage) {
-            return
-        }
-        var paths = mutableListOf<Path>()
-        for (index in 0..<adapter.itemCount) {
-            val file = adapter.getItem(index)
-            val filePath = file.path
-            if (file.mimeType.isImage || filePath == path) {
-                paths.add(filePath)
-            }
-        }
-        var position = paths.indexOf(path)
-        if (position == -1) {
-            return
-        }
-        if (paths.size > IMAGE_VIEWER_ACTIVITY_PATH_LIST_SIZE_MAX) {
-            val start = (position - IMAGE_VIEWER_ACTIVITY_PATH_LIST_SIZE_MAX / 2)
-                .coerceIn(0, paths.size - IMAGE_VIEWER_ACTIVITY_PATH_LIST_SIZE_MAX)
-            paths = paths.subList(start, start + IMAGE_VIEWER_ACTIVITY_PATH_LIST_SIZE_MAX)
-            position -= start
-        }
-        ImageViewerActivity.putExtras(intent, paths, position)
     }
 
     override fun cutFile(file: FileItem) {
@@ -751,6 +748,14 @@ class FileListPaneFragment : Fragment(), FileListAdapter.Listener,
         FilePropertiesDialogFragment.show(file, this)
     }
 
+    override fun showVideoInfo(file: FileItem) {
+        startVideoInfoActivity(requireContext(), file)
+    }
+
+    override fun showImageInfo(file: FileItem) {
+        startImageInfoActivity(requireContext(), file)
+    }
+
     private fun makePathListForJob(files: FileItemSet): List<Path> =
         files.map { it.path }.sortedBy { it.toUri() }
 
@@ -769,6 +774,5 @@ class FileListPaneFragment : Fragment(), FileListAdapter.Listener,
     }
 
     private companion object {
-        const val IMAGE_VIEWER_ACTIVITY_PATH_LIST_SIZE_MAX = 1000
     }
 }

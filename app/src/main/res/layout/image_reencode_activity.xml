@@ -1,0 +1,284 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.coordinatorlayout.widget.CoordinatorLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:fitsSystemWindows="true">
+
+    <dev.vcgms.aapp.vaterialfiles.ui.CoordinatorAppBarLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="?colorAppBarSurface"
+        android:theme="?actionBarTheme">
+
+        <androidx.appcompat.widget.Toolbar
+            android:id="@+id/toolbar"
+            android:layout_width="match_parent"
+            android:layout_height="@dimen/file_list_toolbar_height"
+            app:popupTheme="@style/ThemeOverlay.MaterialFiles.ActionBarPopup.BelowToolbar" />
+
+        <com.google.android.material.progressindicator.LinearProgressIndicator
+            android:id="@+id/progressIndicator"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:indeterminate="true"
+            android:visibility="gone" />
+
+        <TextView
+            android:id="@+id/statusText"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center_horizontal"
+            android:paddingBottom="6dp"
+            android:textAppearance="?textAppearanceListItemSecondary"
+            android:visibility="gone" />
+    </dev.vcgms.aapp.vaterialfiles.ui.CoordinatorAppBarLayout>
+
+    <dev.vcgms.aapp.vaterialfiles.ui.CoordinatorScrollingFrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent">
+
+        <me.zhanghai.android.fastscroll.FastScrollNestedScrollView
+            android:id="@+id/scrollView"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:clipToPadding="false"
+            android:fillViewport="true"
+            android:paddingBottom="16dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="@dimen/screen_edge_margin">
+
+                <TextView
+                    android:id="@+id/summaryText"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="12dp"
+                    android:textAppearance="?textAppearanceListItemSecondary"
+                    android:visibility="gone" />
+
+                <TextView
+                    style="@style/VideoTranscodeSectionTitle"
+                    android:text="@string/image_reencode_naming" />
+
+                <com.google.android.material.chip.ChipGroup
+                    android:id="@+id/namingGroup"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    app:selectionRequired="true"
+                    app:singleSelection="true">
+
+                    <com.google.android.material.chip.Chip
+                        android:id="@+id/namingKeepOriginal"
+                        style="@style/Widget.Material3.Chip.Filter"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/image_reencode_naming_keep" />
+
+                    <com.google.android.material.chip.Chip
+                        android:id="@+id/namingAddSuffix"
+                        style="@style/Widget.Material3.Chip.Filter"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/image_reencode_naming_suffix" />
+                </com.google.android.material.chip.ChipGroup>
+
+                <com.google.android.material.textfield.TextInputLayout
+                    android:id="@+id/suffixLayout"
+                    style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:hint="@string/image_reencode_suffix">
+
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/suffixEdit"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:inputType="text"
+                        android:maxLines="1" />
+                </com.google.android.material.textfield.TextInputLayout>
+
+                <TextView
+                    style="@style/VideoTranscodeSectionTitle"
+                    android:text="@string/image_reencode_format" />
+
+                <com.google.android.material.chip.ChipGroup
+                    android:id="@+id/formatGroup"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    app:selectionRequired="true"
+                    app:singleSelection="true">
+
+                    <com.google.android.material.chip.Chip
+                        android:id="@+id/formatPng"
+                        style="@style/Widget.Material3.Chip.Filter"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="PNG" />
+
+                    <com.google.android.material.chip.Chip
+                        android:id="@+id/formatJpeg"
+                        style="@style/Widget.Material3.Chip.Filter"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="JPG" />
+
+                    <com.google.android.material.chip.Chip
+                        android:id="@+id/formatHeic"
+                        style="@style/Widget.Material3.Chip.Filter"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="HEIC" />
+                </com.google.android.material.chip.ChipGroup>
+
+                <TextView
+                    android:id="@+id/qualityTitle"
+                    style="@style/VideoTranscodeSectionTitle"
+                    android:text="@string/image_reencode_quality" />
+
+                <LinearLayout
+                    android:id="@+id/qualityContainer"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <com.google.android.material.slider.Slider
+                        android:id="@+id/qualitySlider"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:stepSize="1"
+                        android:value="90"
+                        android:valueFrom="1"
+                        android:valueTo="100" />
+
+                    <TextView
+                        android:id="@+id/qualityValueText"
+                        android:layout_width="48dp"
+                        android:layout_height="wrap_content"
+                        android:gravity="end"
+                        android:textAppearance="?textAppearanceBodyLarge" />
+                </LinearLayout>
+
+                <TextView
+                    android:id="@+id/qualityNoteText"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:text="@string/image_reencode_png_note"
+                    android:textAppearance="?textAppearanceListItemSecondary"
+                    android:visibility="gone" />
+
+                <TextView
+                    android:id="@+id/heicNoteText"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:text="@string/image_reencode_heic_exif_note"
+                    android:textAppearance="?textAppearanceListItemSecondary"
+                    android:visibility="gone" />
+
+                <TextView
+                    style="@style/VideoTranscodeSectionTitle"
+                    android:text="@string/image_reencode_resolution" />
+
+                <LinearLayout
+                    android:id="@+id/resolutionContainer"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <com.google.android.material.slider.Slider
+                        android:id="@+id/resolutionSlider"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:stepSize="1"
+                        android:value="100"
+                        android:valueFrom="10"
+                        android:valueTo="100" />
+
+                    <TextView
+                        android:id="@+id/resolutionValueText"
+                        android:layout_width="48dp"
+                        android:layout_height="wrap_content"
+                        android:gravity="end"
+                        android:textAppearance="?textAppearanceBodyLarge" />
+                </LinearLayout>
+
+                <TextView
+                    android:id="@+id/resolutionHintText"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:textAppearance="?textAppearanceListItemSecondary" />
+
+                <TextView
+                    style="@style/VideoTranscodeSectionTitle"
+                    android:text="@string/image_reencode_rotation" />
+
+                <com.google.android.material.chip.ChipGroup
+                    android:id="@+id/rotationGroup"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    app:selectionRequired="true"
+                    app:singleSelection="true">
+
+                    <com.google.android.material.chip.Chip
+                        android:id="@+id/rotation0"
+                        style="@style/Widget.Material3.Chip.Filter"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="0°" />
+
+                    <com.google.android.material.chip.Chip
+                        android:id="@+id/rotation90"
+                        style="@style/Widget.Material3.Chip.Filter"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="90°" />
+
+                    <com.google.android.material.chip.Chip
+                        android:id="@+id/rotation180"
+                        style="@style/Widget.Material3.Chip.Filter"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="180°" />
+
+                    <com.google.android.material.chip.Chip
+                        android:id="@+id/rotation270"
+                        style="@style/Widget.Material3.Chip.Filter"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="270°" />
+                </com.google.android.material.chip.ChipGroup>
+
+                <TextView
+                    style="@style/VideoTranscodeSectionTitle"
+                    android:text="@string/image_reencode_options" />
+
+                <com.google.android.material.materialswitch.MaterialSwitch
+                    android:id="@+id/preserveTimestampsSwitch"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:checked="true"
+                    android:text="@string/image_reencode_preserve_timestamps" />
+
+                <com.google.android.material.materialswitch.MaterialSwitch
+                    android:id="@+id/deleteSourceSwitch"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:text="@string/image_reencode_delete_source" />
+            </LinearLayout>
+        </me.zhanghai.android.fastscroll.FastScrollNestedScrollView>
+    </dev.vcgms.aapp.vaterialfiles.ui.CoordinatorScrollingFrameLayout>
+</androidx.coordinatorlayout.widget.CoordinatorLayout>

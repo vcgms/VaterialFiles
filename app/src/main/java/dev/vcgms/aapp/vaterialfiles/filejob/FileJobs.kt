@@ -112,7 +112,7 @@ fun FileJob.getQuantityString(
     return service.getQuantityString(pluralRes, quantity, *formatArguments)
 }
 
-private fun FileJob.postNotification(
+internal fun FileJob.postNotification(
     title: CharSequence,
     text: CharSequence?,
     subText: CharSequence?,

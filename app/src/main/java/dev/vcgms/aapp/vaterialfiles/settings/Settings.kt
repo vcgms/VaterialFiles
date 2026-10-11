@@ -34,6 +34,13 @@ object Settings {
             Paths.get(Environment.getExternalStorageDirectory().absolutePath)
         )
 
+    // Whether the last browsed directory of each view mode is restored on the next launch.
+    val FILE_LIST_RESTORE_LAST_DIRECTORY: SettingLiveData<Boolean> =
+        BooleanSettingLiveData(
+            R.string.pref_key_file_list_restore_last_directory,
+            R.bool.pref_default_value_file_list_restore_last_directory
+        )
+
     val FILE_LIST_PERSISTENT_DRAWER_OPEN: SettingLiveData<Boolean> =
         BooleanSettingLiveData(
             R.string.pref_key_file_list_persistent_drawer_open,

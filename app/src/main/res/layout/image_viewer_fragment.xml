@@ -19,7 +19,8 @@
         <androidx.appcompat.widget.Toolbar
             android:id="@+id/toolbar"
             android:layout_width="match_parent"
-            android:layout_height="@dimen/file_list_toolbar_height"
+            android:layout_height="?actionBarSize"
+            android:minHeight="?actionBarSize"
             android:theme="?actionBarTheme"
             app:popupTheme="?actionBarPopupTheme" />
     </FrameLayout>

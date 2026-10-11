@@ -90,10 +90,14 @@ import dev.vcgms.aapp.vaterialfiles.file.extension
 import dev.vcgms.aapp.vaterialfiles.file.fileProviderUri
 import dev.vcgms.aapp.vaterialfiles.file.isApk
 import dev.vcgms.aapp.vaterialfiles.file.isImage
+import dev.vcgms.aapp.vaterialfiles.file.isVideo
 import dev.vcgms.aapp.vaterialfiles.filejob.FileJobService
 import dev.vcgms.aapp.vaterialfiles.filelist.FileSortOptions.By
 import dev.vcgms.aapp.vaterialfiles.filelist.FileSortOptions.Order
 import dev.vcgms.aapp.vaterialfiles.fileproperties.FilePropertiesDialogFragment
+import dev.vcgms.aapp.vaterialfiles.imageinfo.startImageInfoActivity
+import dev.vcgms.aapp.vaterialfiles.imageedit.startImageReencodeActivity
+import dev.vcgms.aapp.vaterialfiles.videoinfo.startVideoInfoActivity
 import dev.vcgms.aapp.vaterialfiles.navigation.BookmarkDirectories
 import dev.vcgms.aapp.vaterialfiles.navigation.BookmarkDirectory
 import dev.vcgms.aapp.vaterialfiles.navigation.NavigationFragment
@@ -150,7 +154,8 @@ import dev.vcgms.aapp.vaterialfiles.util.takeIfNotEmpty
 import dev.vcgms.aapp.vaterialfiles.util.valueCompat
 import dev.vcgms.aapp.vaterialfiles.util.viewModels
 import dev.vcgms.aapp.vaterialfiles.util.withChooser
-import dev.vcgms.aapp.vaterialfiles.viewer.image.ImageViewerActivity
+import dev.vcgms.aapp.vaterialfiles.viewer.image.startImageViewer
+import dev.vcgms.aapp.vaterialfiles.viewer.video.startVideoViewer
 
 class FileListFragment : Fragment(), BreadcrumbLayout.Listener, FileListAdapter.Listener,
     ConfirmReplaceFileDialogFragment.Listener, OpenApkDialogFragment.Listener,
@@ -348,7 +353,8 @@ class FileListFragment : Fragment(), BreadcrumbLayout.Listener, FileListAdapter.
         binding.recyclerView.layoutManager = layoutManager
         adapter = FileListAdapter(this).apply {
             hostFragment = this@FileListFragment
-            // Single-pane list mode: long press starts a drag that can be dropped onto a directory.
+            // Long press opens the item menu in single-column mode, so this drag callback stays
+            // dormant; it can be re-enabled by setting longPressStartsDrag = true.
             itemDragListener = { itemView, file -> startSinglePaneDrag(itemView, file) }
         }
         binding.recyclerView.adapter = adapter
@@ -445,6 +451,11 @@ class FileListFragment : Fragment(), BreadcrumbLayout.Listener, FileListAdapter.
                             path = path.createArchiveRootPath()
                         }
                     }
+            }
+            // Restoring the last directory only applies to normal browsing; a pick intent should
+            // stay neutral and start from the default directory.
+            if (path == null && pickOptions == null) {
+                path = restoreLastDirectory()
             }
             if (path == null) {
                 path = Settings.FILE_LIST_DEFAULT_DIRECTORY.valueCompat
@@ -810,6 +821,12 @@ class FileListFragment : Fragment(), BreadcrumbLayout.Listener, FileListAdapter.
         bindClick(selectionBinding.soverflowShare) { shareFiles(activeSelectedFiles) }
         bindClick(selectionBinding.soverflowExtract) { extractFiles(activeSelectedFiles) }
         bindClick(selectionBinding.soverflowArchive) { showCreateArchiveDialog(activeSelectedFiles) }
+        val imageFiles = activeSelectedFiles
+            .filter { it.mimeType.isImage && !it.path.isArchivePath }
+        selectionBinding.soverflowReencodeImage.isVisible = imageFiles.isNotEmpty()
+        bindClick(selectionBinding.soverflowReencodeImage) {
+            startImageReencodeActivity(requireContext(), imageFiles)
+        }
         val popup = PopupWindow(
             selectionBinding.root,
             ViewGroup.LayoutParams.WRAP_CONTENT,
@@ -860,10 +877,47 @@ class FileListFragment : Fragment(), BreadcrumbLayout.Listener, FileListAdapter.
         // falls back to the regular settings-driven behavior.
         isStorageAnalysisPaused = false
         forcedStorageAnalysisPath = null
+        recordLastDirectory(path)
         updateToolbarTitle(path)
         updateToolbarSubtitle()
         updateOverlayToolbar()
         updateBottomToolbar()
+    }
+
+    // Remembers the directory for whichever view mode is currently showing it; dual-pane columns
+    // record their own paths through the panes' currentPathListener.
+    private fun recordLastDirectory(path: Path) {
+        val mode = when {
+            isColumnMode -> LastDirectories.Mode.COLUMN
+            isDualPane -> null
+            currentViewTypeForLastDirectory == FileViewType.GRID -> LastDirectories.Mode.GRID
+            else -> LastDirectories.Mode.LIST
+        }
+        mode?.let { LastDirectories.record(it, path) }
+    }
+
+    // The view type live data is lazily mapped and may not have a value yet when the first path
+    // change arrives (before it is observed), so fall back to the global setting instead of
+    // reading it through valueCompat.
+    private val currentViewTypeForLastDirectory: FileViewType
+        get() = runCatching { viewModel.viewType }.getOrNull()
+            ?: Settings.FILE_LIST_VIEW_TYPE.valueCompat
+
+    // Re-records the current directory when the view mode changes, so that every mode keeps an
+    // up-to-date entry even if the path itself did not change.
+    private fun recordLastDirectoryForCurrentMode() {
+        val path = runCatching { activeViewModel.currentPath }.getOrNull() ?: return
+        recordLastDirectory(path)
+    }
+
+    private fun restoreLastDirectory(): Path? {
+        val mode = when {
+            isColumnMode -> LastDirectories.Mode.COLUMN
+            isDualPane -> LastDirectories.Mode.DUAL_LEFT
+            currentViewTypeForLastDirectory == FileViewType.GRID -> LastDirectories.Mode.GRID
+            else -> LastDirectories.Mode.LIST
+        }
+        return LastDirectories.restore(mode)
     }
 
     private fun onSearchViewExpandedChanged(expanded: Boolean) {
@@ -972,6 +1026,7 @@ class FileListFragment : Fragment(), BreadcrumbLayout.Listener, FileListAdapter.
         updateBottomToolbar()
         updateNavigateUpBackCallbackEnabled()
         updateOverlayToolbar()
+        recordLastDirectoryForCurrentMode()
     }
 
     private fun updateTopBreadcrumbForActivePane() {
@@ -1007,8 +1062,14 @@ class FileListFragment : Fragment(), BreadcrumbLayout.Listener, FileListAdapter.
         DualPaneController.register(DualPaneController.PANE_LEFT, leftPane)
         DualPaneController.register(DualPaneController.PANE_RIGHT, rightPane)
         val path = viewModel.currentPath
-        leftPane.initialize(path)
-        rightPane.initialize(path)
+        leftPane.initialize(LastDirectories.restore(LastDirectories.Mode.DUAL_LEFT) ?: path)
+        rightPane.initialize(LastDirectories.restore(LastDirectories.Mode.DUAL_RIGHT) ?: path)
+        leftPane.currentPathListener = {
+            LastDirectories.record(LastDirectories.Mode.DUAL_LEFT, it)
+        }
+        rightPane.currentPathListener = {
+            LastDirectories.record(LastDirectories.Mode.DUAL_RIGHT, it)
+        }
         leftPane.activeChangedListener = ::onPaneActivated
         rightPane.activeChangedListener = ::onPaneActivated
         leftPane.breadcrumbListener = { data -> onPaneBreadcrumbChanged(leftPane, data) }
@@ -1112,6 +1173,7 @@ class FileListFragment : Fragment(), BreadcrumbLayout.Listener, FileListAdapter.
         updateBottomToolbar()
         updateNavigateUpBackCallbackEnabled()
         updateOverlayToolbar()
+        recordLastDirectoryForCurrentMode()
     }
 
     // Makes the column at the given index the active one and brings it into view; the address
@@ -1459,6 +1521,7 @@ class FileListFragment : Fragment(), BreadcrumbLayout.Listener, FileListAdapter.
         }
         updateSpanCount()
         adapter.viewType = viewType
+        recordLastDirectoryForCurrentMode()
     }
 
     private fun updateSpanCount() {
@@ -2196,12 +2259,19 @@ class FileListFragment : Fragment(), BreadcrumbLayout.Listener, FileListAdapter.
             openApk(file)
             return
         }
+        if (file.mimeType.isVideo) {
+            startVideoViewer(requireContext(), adapterFileList(), file.path)
+            return
+        }
         if (file.isListable) {
             navigateTo(file.listablePath)
             return
         }
         openFileWithIntent(file, false)
     }
+
+    private fun adapterFileList(): List<FileItem> =
+        (0..<adapter.itemCount).map { adapter.getItem(it) }
 
     private fun openApk(file: FileItem) {
         if (!file.isListable) {
@@ -2241,6 +2311,12 @@ class FileListFragment : Fragment(), BreadcrumbLayout.Listener, FileListAdapter.
     private fun openFileWithIntent(file: FileItem, withChooser: Boolean) {
         val path = file.path
         val mimeType = file.mimeType
+        // Open images in the built-in viewer explicitly; an implicit VIEW intent could be
+        // routed to the system gallery if it is the device default handler for image/*.
+        if (mimeType.isImage && !path.isArchivePath) {
+            startImageViewer(requireContext(), adapterFileList(), path)
+            return
+        }
         if (path.isArchivePath) {
             FileJobService.open(path, mimeType, withChooser, requireContext())
         } else {
@@ -2248,7 +2324,6 @@ class FileListFragment : Fragment(), BreadcrumbLayout.Listener, FileListAdapter.
                 .addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
                 .apply {
                     extraPath = path
-                    maybeAddImageViewerActivityExtras(this, path, mimeType)
                 }
                 .let {
                     if (withChooser) {
@@ -2264,33 +2339,6 @@ class FileListFragment : Fragment(), BreadcrumbLayout.Listener, FileListAdapter.
                 }
             startActivitySafe(intent)
         }
-    }
-
-    private fun maybeAddImageViewerActivityExtras(intent: Intent, path: Path, mimeType: MimeType) {
-        if (!mimeType.isImage) {
-            return
-        }
-        var paths = mutableListOf<Path>()
-        // We need the ordered list from our adapter instead of the list from FileListLiveData.
-        for (index in 0..<adapter.itemCount) {
-            val file = adapter.getItem(index)
-            val filePath = file.path
-            if (file.mimeType.isImage || filePath == path) {
-                paths.add(filePath)
-            }
-        }
-        var position = paths.indexOf(path)
-        if (position == -1) {
-            return
-        }
-        // HACK: Don't send too many paths to avoid TransactionTooLargeException.
-        if (paths.size > IMAGE_VIEWER_ACTIVITY_PATH_LIST_SIZE_MAX) {
-            val start = (position - IMAGE_VIEWER_ACTIVITY_PATH_LIST_SIZE_MAX / 2)
-                .coerceIn(0, paths.size - IMAGE_VIEWER_ACTIVITY_PATH_LIST_SIZE_MAX)
-            paths = paths.subList(start, start + IMAGE_VIEWER_ACTIVITY_PATH_LIST_SIZE_MAX)
-            position -= start
-        }
-        ImageViewerActivity.putExtras(intent, paths, position)
     }
 
     override fun cutFile(file: FileItem) {
@@ -2403,6 +2451,14 @@ class FileListFragment : Fragment(), BreadcrumbLayout.Listener, FileListAdapter.
 
     override fun showPropertiesDialog(file: FileItem) {
         FilePropertiesDialogFragment.show(file, this)
+    }
+
+    override fun showVideoInfo(file: FileItem) {
+        startVideoInfoActivity(requireContext(), file)
+    }
+
+    override fun showImageInfo(file: FileItem) {
+        startImageInfoActivity(requireContext(), file)
     }
 
     private fun showCreateFileDialog() {
@@ -2605,7 +2661,6 @@ class FileListFragment : Fragment(), BreadcrumbLayout.Listener, FileListAdapter.
         private const val ACTION_VIEW_DOWNLOADS =
             "dev.vcgms.aapp.vaterialfiles.intent.action.VIEW_DOWNLOADS"
 
-        private const val IMAGE_VIEWER_ACTIVITY_PATH_LIST_SIZE_MAX = 1000
     }
 
     private class RequestAllFilesAccessContract : ActivityResultContract<Unit, Boolean>() {

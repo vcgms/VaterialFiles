@@ -57,6 +57,16 @@
         android:title="@string/file_item_action_create_shortcut" />
 
     <item
+        android:id="@+id/action_image_info"
+        android:icon="@drawable/image_info_icon_control_normal_24dp"
+        android:title="@string/file_item_action_image_info" />
+
+    <item
+        android:id="@+id/action_video_info"
+        android:icon="@drawable/video_info_icon_control_normal_24dp"
+        android:title="@string/file_item_action_video_info" />
+
+    <item
         android:id="@+id/action_properties"
         android:icon="@drawable/information_icon_control_normal_24dp"
         android:title="@string/file_item_action_properties" />

@@ -13,8 +13,8 @@ android {
         applicationId 'dev.vcgms.aapp.vaterialfiles'
         minSdk 33
         targetSdk 35
-        versionCode 152
-        versionName '2.9.152'
+        versionCode 235
+        versionName '3.20.235'
         resValue 'string', 'app_version', versionName + ' (' + versionCode + ')'
         buildConfigField 'String', 'FILE_PROVIDIER_AUTHORITY', 'APPLICATION_ID + ".file_provider"'
         resValue 'string', 'app_provider_authority', applicationId + '.app_provider'
@@ -122,6 +122,15 @@ dependencies {
     implementation 'androidx.swiperefreshlayout:swiperefreshlayout:1.2.0'
     implementation 'com.google.android.material:material:1.14.0'
 
+    // Video transcoding and editing: Jetpack Media3 Transformer with effects.
+    def media3_version = '1.11.1'
+    implementation "androidx.media3:media3-common:$media3_version"
+    implementation "androidx.media3:media3-transformer:$media3_version"
+    implementation "androidx.media3:media3-effect:$media3_version"
+    // PlayerView for the video edit page preview.
+    implementation "androidx.media3:media3-exoplayer:$media3_version"
+    implementation "androidx.media3:media3-ui:$media3_version"
+
     implementation 'com.caverock:androidsvg-aar:1.4'
     implementation 'com.davemorrissey.labs:subsampling-scale-image-view-androidx:3.10.0'
     implementation 'com.drakeet.drawer:drawer:1.0.3'
@@ -169,11 +178,11 @@ dependencies {
     implementation ('eu.agno3.jcifs:jcifs-ng:2.1.10') {
         exclude group: 'org.bouncycastle', module: 'bcprov-jdk18on'
     }
-    implementation platform('io.coil-kt:coil-bom:2.7.0')
-    implementation 'io.coil-kt:coil'
-    implementation 'io.coil-kt:coil-gif'
-    implementation 'io.coil-kt:coil-svg'
-    implementation 'io.coil-kt:coil-video'
+    implementation platform('io.coil-kt.coil3:coil-bom:3.4.0')
+    implementation 'io.coil-kt.coil3:coil'
+    implementation 'io.coil-kt.coil3:coil-gif'
+    implementation 'io.coil-kt.coil3:coil-svg'
+    implementation 'io.coil-kt.coil3:coil-video'
     implementation 'me.zhanghai.android.appiconloader:appiconloader:1.5.0'
     implementation 'me.zhanghai.android.fastscroll:library:1.3.0'
     implementation 'me.zhanghai.android.foregroundcompat:library:1.0.2'
@@ -192,4 +201,14 @@ dependencies {
     }
     // Also a dependency of jCIFS-NG.
     implementation 'org.slf4j:slf4j-android:1.7.36'
+
+    // Video player: mpv/libmpv with the mpv-android Kotlin wrapper (MPVLib) and bundled
+    // native libraries. 0.1.12 carries a newer libmpv/libplacebo with better HDR/Dolby
+    // Vision handling than 0.1.9.
+    implementation 'io.github.abdallahmehiz:mpv-android-lib:0.1.12'
+    // JPEG XL decoding through Coil. 2.4.1+ ships 16 KB page size aligned native libraries;
+    // 2.2.0's libjxl family was 4 KB aligned and rejected on 16 KB devices (Android 15+).
+    // 2.4.0+ is the official Coil 3 plugin; the previous Coil 2 decoder in coil/JxlDecoder.kt
+    // is removed as part of the Coil 3 migration.
+    implementation 'io.github.awxkee:jxl-coder-coil:2.6.1'
 }

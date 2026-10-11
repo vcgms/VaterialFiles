@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+
+    <item
+        android:id="@+id/action_undo"
+        android:icon="@drawable/undo_icon_control_normal_24dp"
+        android:title="@string/video_edit_undo"
+        app:showAsAction="always" />
+
+    <item
+        android:id="@+id/action_redo"
+        android:icon="@drawable/redo_icon_control_normal_24dp"
+        android:title="@string/video_edit_redo"
+        app:showAsAction="always" />
+
+    <item
+        android:id="@+id/action_export"
+        android:icon="@drawable/export_icon_control_normal_24dp"
+        android:title="@string/video_edit_export"
+        app:showAsAction="always" />
+</menu>

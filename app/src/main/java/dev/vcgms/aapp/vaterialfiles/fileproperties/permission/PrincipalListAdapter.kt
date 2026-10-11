@@ -3,8 +3,9 @@ package dev.vcgms.aapp.vaterialfiles.fileproperties.permission
 import android.view.ViewGroup
 import androidx.annotation.DrawableRes
 import androidx.recyclerview.widget.RecyclerView
-import coil.dispose
-import coil.load
+import dev.vcgms.aapp.vaterialfiles.coil.dispose
+import dev.vcgms.aapp.vaterialfiles.coil.load
+import coil3.request.placeholder
 import dev.vcgms.aapp.vaterialfiles.R
 import dev.vcgms.aapp.vaterialfiles.coil.ignoreError
 import dev.vcgms.aapp.vaterialfiles.compat.getDrawableCompat

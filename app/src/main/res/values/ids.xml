@@ -3,4 +3,5 @@
     <item name="action_move_to_other_pane" type="id" />
     <item name="action_copy_to_other_pane" type="id" />
     <item name="action_select" type="id" />
+    <item name="coil_disposable" type="id" />
 </resources>

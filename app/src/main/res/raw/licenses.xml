@@ -238,4 +238,32 @@
         <copyright>Copyright 2003 The Apache Software Foundation</copyright>
         <license>Apache Software License 2.0</license>
     </notice>
+
+    <notice>
+        <name>mpv (libmpv)</name>
+        <url>https://github.com/mpv-player/mpv</url>
+        <copyright>Copyright 2000-2024 the mpv developers</copyright>
+        <license>GNU General Public License 2.1 or later</license>
+    </notice>
+
+    <notice>
+        <name>FFmpeg</name>
+        <url>https://ffmpeg.org</url>
+        <copyright>Copyright 2000-2024 the FFmpeg developers</copyright>
+        <license>GNU Lesser General Public License 2.1 or later</license>
+    </notice>
+
+    <notice>
+        <name>jxl-coder</name>
+        <url>https://github.com/awxkee/jxl-coder</url>
+        <copyright>Copyright 2023 awxkee</copyright>
+        <license>Apache Software License 2.0</license>
+    </notice>
+
+    <notice>
+        <name>Jetpack Media3</name>
+        <url>https://github.com/androidx/media</url>
+        <copyright>Copyright 2020 The Android Open Source Project</copyright>
+        <license>Apache Software License 2.0</license>
+    </notice>
 </notices>

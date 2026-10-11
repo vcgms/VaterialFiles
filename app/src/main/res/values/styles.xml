@@ -70,4 +70,19 @@
         <item name="colorControlNormal">?android:textColorSecondary</item>
         <item name="searchViewStyle">@style/Widget.AppCompat.SearchView</item>
     </style>
+
+    <!-- Overflow popup that expands below the toolbar instead of overlapping it: the pages that
+         moved their corner button into the overflow menu anchor the popup to the toolbar's menu
+         view, whose top half sits inside the bar; push the popup down by the anchored height. -->
+    <style name="ThemeOverlay.MaterialFiles.ActionBarPopup.BelowToolbar" parent="ThemeOverlay.MaterialFiles.ActionBarPopup">
+        <item name="popupMenuStyle">@style/Widget.MaterialFiles.PopupMenu.BelowToolbar</item>
+        <item name="android:popupMenuStyle">@style/Widget.MaterialFiles.PopupMenu.BelowToolbar</item>
+        <item name="actionOverflowMenuStyle">@style/Widget.MaterialFiles.PopupMenu.BelowToolbar</item>
+        <item name="android:actionOverflowMenuStyle">@style/Widget.MaterialFiles.PopupMenu.BelowToolbar</item>
+    </style>
+
+    <style name="Widget.MaterialFiles.PopupMenu.BelowToolbar" parent="Widget.AppCompat.PopupMenu">
+        <item name="android:popupBackground">@drawable/m3_popupmenu_background_overlay</item>
+        <item name="android:dropDownVerticalOffset">4dp</item>
+    </style>
 </resources>
