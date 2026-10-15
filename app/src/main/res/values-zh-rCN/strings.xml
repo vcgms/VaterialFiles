@@ -383,6 +383,7 @@
     <string name="video_transcode_hdr_sdr">SDR</string>
     <string name="video_transcode_hdr_sdr_source">源视频为SDR视频。</string>
     <string name="video_transcode_hdr_info">输出：%1$s</string>
+    <string name="video_transcode_hdr_unsupported">此设备的编码器不支持保留 HDR，视频将转为 SDR 输出。</string>
     <string name="image_reencode_naming_custom">自定义</string>
     <string name="image_reencode_name_conflict_hint">新文件名和原文件名冲突，将自动增加_1后缀</string>
     <string name="image_reencode_resolved_name">输出文件名：%1$s</string>
@@ -411,9 +412,11 @@
     <string name="image_reencode_resolution_output_format">输出分辨率：%1$d × %2$d</string>
     <string name="image_reencode_resolution_batch_hint">每张图片按各自分辨率的 %1$d%% 缩放</string>
     <string name="image_reencode_quality_format">%1$d%%</string>
+    <string name="image_reencode_summary_scale">%1$d%%</string>
+    <string name="image_reencode_summary_rotation">%1$d°</string>
+    <string name="image_reencode_summary_batch">%1$d 张图片</string>
     <string name="image_reencode_start">开始</string>
     <string name="image_reencode_cancel">取消</string>
-    <string name="image_reencode_running">正在重新编码…</string>
     <string name="image_reencode_finished">重新编码完成</string>
     <string name="image_reencode_failed">重新编码失败：%1$s</string>
     <string name="image_reencode_output_name_empty">输出文件名不能为空</string>
@@ -424,7 +427,6 @@
     <string name="image_reencode_preserve_timestamps">保持 EXIF 信息</string>
     <string name="image_reencode_delete_source">转换后删除原文件</string>
     <string name="image_reencode_batch_summary">已选择 %1$d 张图片，将分别保存到各自原图所在目录</string>
-    <string name="image_reencode_progress_format">%1$d/%2$d</string>
     <string name="image_reencode_batch_finished">已重新编码 %1$d 张图片</string>
     <string name="image_reencode_batch_all_failed">%1$d 张图片重新编码失败</string>
     <string name="image_reencode_batch_partial">%1$d 张成功，%2$d 张失败</string>
@@ -698,6 +700,7 @@
     <string name="video_viewer_frame_back">逐帧后退</string>
     <string name="video_viewer_screenshot">截图</string>
     <string name="video_viewer_screenshot_saved">已保存到 %s</string>
+    <string name="video_viewer_screenshot_failed">截屏失败</string>
     <string name="video_viewer_no_previous">已是第一个视频</string>
     <string name="video_viewer_no_next">已是最后一个视频</string>
     <string name="image_viewer_subtitle_format">%1$,d/%2$,d</string>
@@ -739,6 +742,18 @@
     <string name="settings_appearance_title">外观</string>
     <string name="settings_directories_title">目录</string>
     <string name="settings_storage_analysis_title">存储分析</string>
+    <string name="settings_playback_title">播放</string>
+    <string name="settings_video_player_long_press_speed_title">长按播放倍速</string>
+    <string-array name="settings_video_player_long_press_speed_entries">
+        <item>2x</item>
+        <item>3x</item>
+    </string-array>
+    <string name="settings_screenshot_format_title">截屏格式</string>
+    <string-array name="settings_screenshot_format_entries">
+        <item>JPG</item>
+        <item>PNG</item>
+    </string-array>
+    <string name="settings_screenshot_jpg_quality_title">截屏 JPG 质量</string>
     <string name="settings_advanced_title">高级</string>
     <string name="settings_locale_title">语言</string>
     <string name="settings_theme_color_title">主题色</string>

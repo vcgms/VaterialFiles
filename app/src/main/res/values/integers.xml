@@ -12,4 +12,8 @@
 
     <!-- SevenZOutputFile requires SeekableByteChannel which requires Android N. -->
     <integer name="create_archive_type_seven_z_visibility">@integer/visibility_gone</integer>
+
+    <integer name="pref_default_value_screenshot_jpg_quality">90</integer>
+    <integer name="pref_screenshot_jpg_quality_min">10</integer>
+    <integer name="pref_screenshot_jpg_quality_max">100</integer>
 </resources>

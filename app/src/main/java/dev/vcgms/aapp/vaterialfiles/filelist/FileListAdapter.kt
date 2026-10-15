@@ -356,7 +356,24 @@ class FileListAdapter(
         popup.elevation = anchor.resources.displayMetrics.density * 8
         popup.isOutsideTouchable = true
         itemMenuPopup = popup
-        popup.showAsDropDown(anchor, 0, 0, Gravity.END)
+        // The popup opens below the anchor by default; when there is not enough room below (a
+        // bottom-row item) the trailing rows would be clipped off screen, so open it above the
+        // anchor instead.
+        binding.root.measure(
+            View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED),
+            View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
+        )
+        val popupHeight = binding.root.measuredHeight
+        val anchorLocation = IntArray(2)
+        anchor.getLocationOnScreen(anchorLocation)
+        val anchorBottom = anchorLocation[1] + anchor.height
+        val screenHeight = anchor.resources.displayMetrics.heightPixels
+        val yOffset = if (anchorBottom + popupHeight > screenHeight) {
+            -anchor.height - popupHeight
+        } else {
+            0
+        }
+        popup.showAsDropDown(anchor, 0, yOffset, Gravity.END)
     }
 
     private fun applyDenseStyle(holder: ViewHolder, viewType: FileViewType) {

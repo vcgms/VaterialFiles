@@ -22,6 +22,10 @@ class SettingsPreferenceFragment : PreferenceFragmentCompat() {
 
     private lateinit var appearanceCategory: CollapsiblePreferenceCategory
 
+    private lateinit var playbackCategory: CollapsiblePreferenceCategory
+
+    private lateinit var screenshotJpgQualityPreference: Preference
+
     override fun onCreatePreferencesFix(savedInstanceState: Bundle?, rootKey: String?) {
         addPreferencesFromResource(R.xml.settings)
 
@@ -37,12 +41,18 @@ class SettingsPreferenceFragment : PreferenceFragmentCompat() {
         appearanceCategory = preferenceScreen
             .findPreference(getString(R.string.pref_key_settings_category_appearance))!!
         appearanceCategory.onExpandedChanged = { updateBlackNightModePreferenceVisible() }
+        playbackCategory = preferenceScreen
+            .findPreference(getString(R.string.pref_key_settings_category_playback))!!
+        playbackCategory.onExpandedChanged = { updateScreenshotJpgQualityVisible() }
+        screenshotJpgQualityPreference =
+            preferenceScreen.findPreference(getString(R.string.pref_key_screenshot_jpg_quality))!!
         // Collapse every category by default; the expanded state survives configuration changes.
         for (index in 0 until preferenceScreen.preferenceCount) {
             (preferenceScreen.getPreference(index) as? CollapsiblePreferenceCategory)
                 ?.isExpanded = false
         }
         updateBlackNightModePreferenceVisible()
+        updateScreenshotJpgQualityVisible()
     }
 
     override fun onActivityCreated(savedInstanceState: Bundle?) {
@@ -63,6 +73,7 @@ class SettingsPreferenceFragment : PreferenceFragmentCompat() {
         Settings.NIGHT_MODE.observe(viewLifecycleOwner, this::onNightModeChanged)
         Settings.BLACK_NIGHT_MODE.observe(viewLifecycleOwner, this::onBlackNightModeChanged)
         Settings.AUTH_MODE.observe(viewLifecycleOwner, this::onAuthModeChanged)
+        Settings.SCREENSHOT_FORMAT.observe(viewLifecycleOwner) { updateScreenshotJpgQualityVisible() }
     }
 
     private fun onMaterialYouChanged(materialYou: Boolean) {
@@ -73,6 +84,13 @@ class SettingsPreferenceFragment : PreferenceFragmentCompat() {
     private fun updateBlackNightModePreferenceVisible() {
         blackNightModePreference.isVisible =
             appearanceCategory.isExpanded && !Settings.MATERIAL_YOU.valueCompat
+    }
+
+    // The JPG quality slider only applies when screenshots are saved as JPG. The category's
+    // collapse state also controls the child visibility, so both must be honored.
+    private fun updateScreenshotJpgQualityVisible() {
+        screenshotJpgQualityPreference.isVisible =
+            playbackCategory.isExpanded && Settings.SCREENSHOT_FORMAT.valueCompat == ScreenshotFormat.JPG
     }
 
     private fun onDisplaySizeChanged(displaySize: DisplaySize) {

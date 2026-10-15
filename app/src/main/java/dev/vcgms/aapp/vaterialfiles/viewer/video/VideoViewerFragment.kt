@@ -10,9 +10,11 @@ import android.os.Environment
 import android.os.Handler
 import android.os.Looper
 import android.provider.Settings
+import android.graphics.Bitmap
 import android.view.GestureDetector
 import android.view.LayoutInflater
 import android.view.MotionEvent
+import android.view.PixelCopy
 import android.view.View
 import android.view.ViewConfiguration
 import android.view.ViewGroup
@@ -35,12 +37,15 @@ import dev.vcgms.aapp.vaterialfiles.R
 import dev.vcgms.aapp.vaterialfiles.databinding.VideoViewerFragmentBinding
 import dev.vcgms.aapp.vaterialfiles.filelist.name
 import dev.vcgms.aapp.vaterialfiles.provider.linux.isLinuxPath
+import dev.vcgms.aapp.vaterialfiles.settings.ScreenshotFormat
+import dev.vcgms.aapp.vaterialfiles.settings.Settings as AppSettings
 import dev.vcgms.aapp.vaterialfiles.util.ParcelableArgs
 import dev.vcgms.aapp.vaterialfiles.util.applyDescriptionAsTooltip
 import dev.vcgms.aapp.vaterialfiles.util.args
 import dev.vcgms.aapp.vaterialfiles.util.extraPathList
 import dev.vcgms.aapp.vaterialfiles.util.finish
 import dev.vcgms.aapp.vaterialfiles.util.showToast
+import dev.vcgms.aapp.vaterialfiles.util.valueCompat
 
 class VideoViewerFragment : Fragment() {
     private val args by args<Args>()
@@ -63,6 +68,10 @@ class VideoViewerFragment : Fragment() {
     private val speeds = doubleArrayOf(0.5, 0.75, 1.0, 1.25, 1.5, 2.0)
 
     private var speedIndex = DEFAULT_SPEED_INDEX
+
+    // While the video area is held down the playback runs at the configured long-press speed; this
+    // flag marks the state so the normal speed is restored when the finger lifts.
+    private var longPressSpeedActive = false
 
     private var hwdec = "mediacodec-copy"
 
@@ -348,8 +357,10 @@ class VideoViewerFragment : Fragment() {
     }
 
     private fun takeScreenshot() {
+        val format = AppSettings.SCREENSHOT_FORMAT.valueCompat
         val path = paths[position]
-        val fileName = path.name.substringBeforeLast('.') + "_" + formatTimestamp(timePos) + ".png"
+        val fileName =
+            path.name.substringBeforeLast('.') + "_" + formatTimestamp(timePos) + format.extension
         // Prefer the video's own directory; fall back to the public pictures directory when the
         // source is not a plain file path or its directory is not writable.
         val sourceDirectory = if (path.isLinuxPath) path.parent?.toFile() else null
@@ -363,8 +374,38 @@ class VideoViewerFragment : Fragment() {
         }
         directory.mkdirs()
         val file = File(directory, fileName)
-        MpvManager.mpv.command("screenshot-to-file", file.absolutePath)
-        showToast(getString(R.string.video_viewer_screenshot_saved, file.absolutePath))
+        // mpv's own screenshot command needs a GPU readback that fails on some devices, so grab
+        // the frame directly from the video surface instead; JPG quality is applied on compress.
+        val view = binding.mpvVideoView
+        if (view.width <= 0 || view.height <= 0) {
+            showToast(R.string.video_viewer_screenshot_failed)
+            return
+        }
+        val bitmap = Bitmap.createBitmap(view.width, view.height, Bitmap.Config.ARGB_8888)
+        PixelCopy.request(view, bitmap, { copyResult ->
+            if (copyResult == PixelCopy.SUCCESS) {
+                runCatching {
+                    file.outputStream().use { output ->
+                        when (format) {
+                            ScreenshotFormat.JPG -> bitmap.compress(
+                                Bitmap.CompressFormat.JPEG,
+                                AppSettings.SCREENSHOT_JPG_QUALITY.valueCompat, output
+                            )
+                            ScreenshotFormat.PNG -> bitmap.compress(
+                                Bitmap.CompressFormat.PNG, 100, output
+                            )
+                        }
+                    }
+                    showToast(getString(R.string.video_viewer_screenshot_saved, file.absolutePath))
+                }.onFailure {
+                    it.printStackTrace()
+                    showToast(R.string.video_viewer_screenshot_failed)
+                }
+            } else {
+                showToast(R.string.video_viewer_screenshot_failed)
+            }
+            bitmap.recycle()
+        }, mainHandler)
     }
 
     // The playback position rendered into a file-name safe HH-MM-SS (or MM-SS under one hour).
@@ -482,6 +523,13 @@ class VideoViewerFragment : Fragment() {
             return true
         }
 
+        override fun onLongPress(e: MotionEvent) {
+            // Holding the video area plays at the configured fast speed until the finger lifts.
+            val speed = AppSettings.VIDEO_PLAYER_LONG_PRESS_SPEED.valueCompat.speed
+            MpvManager.mpv.setPropertyString("speed", speed.toString())
+            longPressSpeedActive = true
+        }
+
         override fun onScroll(
             e1: MotionEvent?, e2: MotionEvent, distanceX: Float, distanceY: Float
         ): Boolean {
@@ -551,6 +599,10 @@ class VideoViewerFragment : Fragment() {
             // The seek is asynchronous; keep ignoring time-pos until the new position arrives.
             mainHandler.removeCallbacks(clearUserSeekingRunnable)
             mainHandler.postDelayed(clearUserSeekingRunnable, 500)
+        }
+        if (longPressSpeedActive) {
+            longPressSpeedActive = false
+            MpvManager.mpv.setPropertyString("speed", speeds[speedIndex].toString())
         }
         gestureMode = GestureMode.NONE
         hideHudDelayed()

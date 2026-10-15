@@ -127,6 +127,35 @@
     </dev.vcgms.aapp.vaterialfiles.settings.CollapsiblePreferenceCategory>
 
     <dev.vcgms.aapp.vaterialfiles.settings.CollapsiblePreferenceCategory
+        android:key="@string/pref_key_settings_category_playback"
+        android:layout="@layout/preference_collapsible_category"
+        android:title="@string/settings_playback_title">
+
+        <dev.vcgms.aapp.vaterialfiles.ui.EndAlignedSimpleMenuPreference
+            android:key="@string/pref_key_video_player_long_press_speed"
+            android:title="@string/settings_video_player_long_press_speed_title"
+            android:defaultValue="@string/pref_default_value_video_player_long_press_speed"
+            android:entries="@array/settings_video_player_long_press_speed_entries"
+            android:entryValues="@array/pref_entry_values_video_player_long_press_speed"
+            app:useSimpleSummaryProvider="true" />
+
+        <dev.vcgms.aapp.vaterialfiles.ui.EndAlignedSimpleMenuPreference
+            android:key="@string/pref_key_screenshot_format"
+            android:title="@string/settings_screenshot_format_title"
+            android:defaultValue="@string/pref_default_value_screenshot_format"
+            android:entries="@array/settings_screenshot_format_entries"
+            android:entryValues="@array/pref_entry_values_screenshot_format"
+            app:useSimpleSummaryProvider="true" />
+
+        <dev.vcgms.aapp.vaterialfiles.ui.SliderPreference
+            android:key="@string/pref_key_screenshot_jpg_quality"
+            android:title="@string/settings_screenshot_jpg_quality_title"
+            android:defaultValue="@integer/pref_default_value_screenshot_jpg_quality"
+            app:min="@integer/pref_screenshot_jpg_quality_min"
+            app:max="@integer/pref_screenshot_jpg_quality_max" />
+    </dev.vcgms.aapp.vaterialfiles.settings.CollapsiblePreferenceCategory>
+
+    <dev.vcgms.aapp.vaterialfiles.settings.CollapsiblePreferenceCategory
         android:layout="@layout/preference_collapsible_category"
         android:title="@string/settings_advanced_title">
 

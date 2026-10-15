@@ -33,6 +33,20 @@
         <item>4</item>
         <item>5</item>
     </string-array>
+    <string name="pref_key_settings_category_playback">key_settings_category_playback</string>
+    <string name="pref_key_video_player_long_press_speed">key_video_player_long_press_speed</string>
+    <string name="pref_default_value_video_player_long_press_speed">0</string>
+    <string-array name="pref_entry_values_video_player_long_press_speed">
+        <item>0</item>
+        <item>1</item>
+    </string-array>
+    <string name="pref_key_screenshot_format">key_screenshot_format</string>
+    <string name="pref_default_value_screenshot_format">0</string>
+    <string-array name="pref_entry_values_screenshot_format">
+        <item>0</item>
+        <item>1</item>
+    </string-array>
+    <string name="pref_key_screenshot_jpg_quality">key_screenshot_jpg_quality</string>
     <string name="pref_key_file_list_sort_options">key_file_list_sort_options</string>
     <string name="pref_key_create_archive_type">key_create_archive_type</string>
 

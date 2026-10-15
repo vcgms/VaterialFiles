@@ -18,21 +18,48 @@
             android:layout_height="@dimen/file_list_toolbar_height"
             app:popupTheme="@style/ThemeOverlay.MaterialFiles.ActionBarPopup.BelowToolbar" />
 
-        <com.google.android.material.progressindicator.LinearProgressIndicator
-            android:id="@+id/progressIndicator"
+        <!-- Output file name + main encoding parameters, shown above the progress bar while
+             re-encoding (the form below is locked at that point), mirroring the video re-encode
+             page's layout. -->
+        <TextView
+            android:id="@+id/progressSummaryText"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:indeterminate="true"
-            android:visibility="gone" />
-
-        <TextView
-            android:id="@+id/statusText"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_gravity="center_horizontal"
-            android:paddingBottom="6dp"
+            android:paddingStart="@dimen/screen_edge_margin"
+            android:paddingEnd="@dimen/screen_edge_margin"
+            android:paddingTop="12dp"
+            android:paddingBottom="8dp"
             android:textAppearance="?textAppearanceListItemSecondary"
             android:visibility="gone" />
+
+        <LinearLayout
+            android:id="@+id/progressContainer"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingStart="@dimen/screen_edge_margin"
+            android:paddingEnd="@dimen/screen_edge_margin"
+            android:paddingBottom="12dp"
+            android:visibility="gone">
+
+            <com.google.android.material.progressindicator.LinearProgressIndicator
+                android:id="@+id/progressIndicator"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:indeterminate="false"
+                android:max="100" />
+
+            <TextView
+                android:id="@+id/progressPercentText"
+                android:layout_width="40dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="6dp"
+                android:gravity="center_vertical|end"
+                android:includeFontPadding="false"
+                android:textAppearance="?textAppearanceListItemSecondary" />
+        </LinearLayout>
     </dev.vcgms.aapp.vaterialfiles.ui.CoordinatorAppBarLayout>
 
     <dev.vcgms.aapp.vaterialfiles.ui.CoordinatorScrollingFrameLayout

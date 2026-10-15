@@ -123,9 +123,11 @@ object ImageReencoder {
             tempFile.delete()
             throw e
         } catch (e: IOException) {
+            e.printStackTrace()
             tempFile.delete()
             throw e
         } catch (e: Exception) {
+            e.printStackTrace()
             tempFile.delete()
             throw IOException(e)
         } finally {

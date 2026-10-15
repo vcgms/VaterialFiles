@@ -51,6 +51,10 @@ class VideoTranscodeActivity : AppActivity() {
 
     private var isTranscoding = false
 
+    // Whether this device can re-encode keeping HDR; when false Media3 would silently tone-map the
+    // output to SDR, so the "keep HDR" option is only offered when this is true.
+    private var deviceCanKeepHdr = false
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = VideoTranscodeActivityBinding.inflate(layoutInflater)
@@ -221,6 +225,10 @@ class VideoTranscodeActivity : AppActivity() {
         }
         updateResolutionValue()
         updateBitRateUi()
+        // Probe HDR-encoding support once the source transfer is known; it decides whether "keep
+        // HDR" is offered (Media3 silently outputs SDR when the device cannot encode HDR).
+        deviceCanKeepHdr = info != null && sourceIsHdr &&
+            MediaCodecUtils.canKeepHdr(MimeTypes.VIDEO_H265, sourceIsHlg)
         updateHdrState()
         updateNameUi()
     }
@@ -293,13 +301,17 @@ class VideoTranscodeActivity : AppActivity() {
         binding.hdrGroup.isVisible = loaded && isHdr
         binding.hdrInfoText.isVisible = loaded
         if (isHdr) {
-            binding.hdrKeep.isEnabled = !binding.videoCodecAvc.isChecked
-            if (binding.videoCodecAvc.isChecked && binding.hdrKeep.isChecked) {
+            // Keeping HDR needs a 10-bit capable codec (not AVC) and a device whose encoder
+            // supports HDR editing; otherwise Media3 silently tone-maps the output to SDR.
+            binding.hdrKeep.isEnabled = !binding.videoCodecAvc.isChecked && deviceCanKeepHdr
+            if (!binding.hdrKeep.isEnabled && binding.hdrKeep.isChecked) {
                 binding.hdrSdr.isChecked = true
             }
-            binding.hdrInfoText.text = getString(
-                R.string.video_transcode_hdr_info, outputColorInfoString()
-            )
+            binding.hdrInfoText.text = if (deviceCanKeepHdr) {
+                getString(R.string.video_transcode_hdr_info, outputColorInfoString())
+            } else {
+                getString(R.string.video_transcode_hdr_unsupported)
+            }
         } else {
             binding.hdrInfoText.setText(R.string.video_transcode_hdr_sdr_source)
         }

@@ -13,4 +13,9 @@
         <attr name="itemSubtitleTextSize" format="dimension" />
         <attr name="dividerVerticalPadding" format="dimension" />
     </declare-styleable>
+
+    <declare-styleable name="SliderPreference">
+        <attr name="min" format="integer" />
+        <attr name="max" format="integer" />
+    </declare-styleable>
 </resources>

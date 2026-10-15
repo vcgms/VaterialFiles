@@ -425,6 +425,7 @@
     <string name="video_transcode_hdr_sdr">SDR</string>
     <string name="video_transcode_hdr_sdr_source">The source video is SDR.</string>
     <string name="video_transcode_hdr_info">Output: %1$s</string>
+    <string name="video_transcode_hdr_unsupported">This device\'s encoder can\'t keep HDR; the video will be tone-mapped to SDR.</string>
     <string name="image_reencode_naming_custom">Custom</string>
     <string name="image_reencode_name_conflict_hint">The new name conflicts with the original; \u201c_1\u201d will be appended automatically</string>
     <string name="image_reencode_resolved_name">Output: %1$s</string>
@@ -453,9 +454,11 @@
     <string name="image_reencode_resolution_output_format">Output resolution: %1$d × %2$d</string>
     <string name="image_reencode_resolution_batch_hint">Each image is scaled to %1$d%% of its own resolution</string>
     <string name="image_reencode_quality_format">%1$d%%</string>
+    <string name="image_reencode_summary_scale">%1$d%%</string>
+    <string name="image_reencode_summary_rotation">%1$d°</string>
+    <string name="image_reencode_summary_batch">%1$d images</string>
     <string name="image_reencode_start">Start</string>
     <string name="image_reencode_cancel">Cancel</string>
-    <string name="image_reencode_running">Re-encoding…</string>
     <string name="image_reencode_finished">Re-encoding finished</string>
     <string name="image_reencode_failed">Re-encoding failed: %1$s</string>
     <string name="image_reencode_output_name_empty">Output file name cannot be empty</string>
@@ -466,7 +469,6 @@
     <string name="image_reencode_preserve_timestamps">Keep EXIF info</string>
     <string name="image_reencode_delete_source">Delete original files after conversion</string>
     <string name="image_reencode_batch_summary">%1$d images selected; each will be saved next to its original</string>
-    <string name="image_reencode_progress_format">%1$d/%2$d</string>
     <string name="image_reencode_batch_finished">Re-encoded %1$d images</string>
     <string name="image_reencode_batch_all_failed">Re-encoding failed for %1$d images</string>
     <string name="image_reencode_batch_partial">%1$d succeeded, %2$d failed</string>
@@ -850,6 +852,7 @@
     <string name="video_viewer_frame_back">Frame back</string>
     <string name="video_viewer_screenshot">Screenshot</string>
     <string name="video_viewer_screenshot_saved">Saved to %s</string>
+    <string name="video_viewer_screenshot_failed">Screenshot failed</string>
     <string name="video_viewer_no_previous">Already at the first video</string>
     <string name="video_viewer_no_next">Already at the last video</string>
     <string name="image_viewer_subtitle_format">%1$,d/%2$,d</string>
@@ -894,6 +897,18 @@
     <string name="settings_appearance_title">Appearance</string>
     <string name="settings_directories_title">Directories</string>
     <string name="settings_storage_analysis_title">Storage analysis</string>
+    <string name="settings_playback_title">Playback</string>
+    <string name="settings_video_player_long_press_speed_title">Long-press playback speed</string>
+    <string-array name="settings_video_player_long_press_speed_entries">
+        <item>2x</item>
+        <item>3x</item>
+    </string-array>
+    <string name="settings_screenshot_format_title">Screenshot format</string>
+    <string-array name="settings_screenshot_format_entries">
+        <item>JPG</item>
+        <item>PNG</item>
+    </string-array>
+    <string name="settings_screenshot_jpg_quality_title">Screenshot JPG quality</string>
     <string name="settings_advanced_title">Advanced</string>
     <string name="settings_locale_title">Language</string>
     <string name="settings_theme_color_title">Theme color</string>

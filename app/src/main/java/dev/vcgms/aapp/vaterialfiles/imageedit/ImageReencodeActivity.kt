@@ -9,6 +9,7 @@ import androidx.core.view.isVisible
 import androidx.core.widget.doAfterTextChanged
 import androidx.lifecycle.lifecycleScope
 import java.util.Random
+import java8.nio.file.Path
 import kotlin.math.max
 import kotlin.math.roundToInt
 import kotlinx.coroutines.Dispatchers
@@ -282,6 +283,10 @@ class ImageReencodeActivity : AppActivity() {
         val total = targets.size
         val jobIds = ArrayList<Int>(total)
         reencodeJobIds = jobIds
+        // Show what is being written above the progress bar while the (locked) form is dimmed.
+        binding.progressSummaryText.text = buildReencodeSummary(
+            targets, format, quality, resolutionPercent, rotationDegrees
+        )
         setReencodingUi(true)
         updateProgressText(0, total)
         progressJob = lifecycleScope.launch {
@@ -326,13 +331,43 @@ class ImageReencodeActivity : AppActivity() {
     }
 
     private fun updateProgressText(completed: Int, total: Int) {
-        binding.progressIndicator.isVisible = true
-        binding.statusText.isVisible = true
-        binding.statusText.text = if (total == 1) {
-            getString(R.string.image_reencode_running)
-        } else {
-            getString(R.string.image_reencode_progress_format, completed, total)
+        val percent = if (total == 0) 0 else completed * 100 / total
+        binding.progressContainer.isVisible = true
+        binding.progressIndicator.setProgressCompat(percent, true)
+        binding.progressPercentText.text =
+            getString(R.string.image_reencode_quality_format, percent)
+    }
+
+    // A short summary of the output file name and the main encoding parameters, shown above the
+    // progress bar while re-encoding.
+    private fun buildReencodeSummary(
+        targets: List<Pair<FileItem, Path>>,
+        format: ImageReencodeFormat,
+        quality: Int,
+        resolutionPercent: Int,
+        rotationDegrees: Int,
+    ): String {
+        val params = mutableListOf<String>()
+        params += when (format) {
+            ImageReencodeFormat.PNG -> "PNG"
+            ImageReencodeFormat.JPEG -> "JPG"
+            ImageReencodeFormat.HEIC -> "HEIC"
         }
+        if (format != ImageReencodeFormat.PNG) {
+            params += getString(R.string.image_reencode_quality_format, quality)
+        }
+        if (resolutionPercent < 100) {
+            params += getString(R.string.image_reencode_summary_scale, resolutionPercent)
+        }
+        if (rotationDegrees % 360 != 0) {
+            params += getString(R.string.image_reencode_summary_rotation, rotationDegrees)
+        }
+        val nameLine = if (targets.size == 1) {
+            targets[0].second.fileName.toString()
+        } else {
+            getString(R.string.image_reencode_summary_batch, targets.size)
+        }
+        return nameLine + "\n" + params.joinToString(" \u00b7 ")
     }
 
     private fun onAllFinished(done: Int, failed: Int, total: Int) {
@@ -380,8 +415,8 @@ class ImageReencodeActivity : AppActivity() {
         }
         invalidateOptionsMenu()
         if (!reencoding) {
-            binding.progressIndicator.isVisible = false
-            binding.statusText.isVisible = false
+            binding.progressSummaryText.isVisible = false
+            binding.progressContainer.isVisible = false
         }
     }
 

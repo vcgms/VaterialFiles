@@ -96,6 +96,26 @@ object Settings {
             GridColumnCount::class.java
         )
 
+    val VIDEO_PLAYER_LONG_PRESS_SPEED: SettingLiveData<VideoPlayerLongPressSpeed> =
+        EnumSettingLiveData(
+            R.string.pref_key_video_player_long_press_speed,
+            R.string.pref_default_value_video_player_long_press_speed,
+            VideoPlayerLongPressSpeed::class.java
+        )
+
+    val SCREENSHOT_FORMAT: SettingLiveData<ScreenshotFormat> =
+        EnumSettingLiveData(
+            R.string.pref_key_screenshot_format,
+            R.string.pref_default_value_screenshot_format,
+            ScreenshotFormat::class.java
+        )
+
+    val SCREENSHOT_JPG_QUALITY: SettingLiveData<Int> =
+        IntegerSettingLiveData(
+            R.string.pref_key_screenshot_jpg_quality,
+            R.integer.pref_default_value_screenshot_jpg_quality
+        )
+
     val FILE_LIST_SORT_OPTIONS: SettingLiveData<FileSortOptions> =
         ParcelValueSettingLiveData(
             R.string.pref_key_file_list_sort_options,
